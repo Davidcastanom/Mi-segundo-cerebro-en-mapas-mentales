@@ -14,9 +14,9 @@ import {
   Node,
   MarkerType,
   BackgroundVariant,
-  ReactFlowInstance,
 } from '@xyflow/react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Sparkles, Command, Compass } from 'lucide-react';
+import { User } from 'firebase/auth';
 
 import { 
   BrainNodeData, 
@@ -24,7 +24,10 @@ import {
   NodeType, 
   BrainEdgeData,
   DateFilterType,
-  DateSortType
+  DateSortType,
+  StatusFilterType,
+  NodeStatus,
+  ExportBackupData
 } from './types';
 import { 
   INITIAL_CATEGORIES, 
@@ -41,6 +44,10 @@ import { StatsDrawer } from './components/StatsDrawer';
 import { NodeDetailModal } from './components/NodeDetailModal';
 import { PaletteModal } from './components/PaletteModal';
 import { InstructionManualModal } from './components/InstructionManualModal';
+import { CommandPaletteModal } from './components/CommandPaletteModal';
+import { StudyReviewModal } from './components/StudyReviewModal';
+import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
+import { AspectsHubModal } from './components/AspectsHubModal';
 import { 
   Palette60_30_10, 
   obtenerPaletaGuardada, 
@@ -53,8 +60,10 @@ import {
   ConnectedNodeInfo,
   generarDossierCompletoMarkdown,
   generarDossierCompletoHTML,
-  descargarArchivo
+  descargarArchivo,
+  detectarPlataforma
 } from './utils/textUtils';
+import { DriveBackupPayload } from './services/driveService';
 
 const STORAGE_KEY = 'mi_segundo_cerebro_store_v1';
 
@@ -78,6 +87,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<NodeType | 'todos'>('todos');
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilterType>('todos');
   const [selectedDate, setSelectedDate] = useState<DateFilterType>('todas');
   const [selectedDateSort, setSelectedDateSort] = useState<DateSortType>('recientes');
 
@@ -94,6 +104,15 @@ export default function App() {
   // Paleta 60-30-10
   const [palette, setPalette] = useState<Palette60_30_10>(() => obtenerPaletaGuardada());
   const [isPaletteModalOpen, setIsPaletteModalOpen] = useState(false);
+
+  // New Productivity Modals
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [isAspectsHubOpen, setIsAspectsHubOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [quickPasteFeedback, setQuickPasteFeedback] = useState<string | null>(null);
+  const hubFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     aplicarVariablesCSS(palette);
@@ -190,12 +209,12 @@ export default function App() {
   }, [nodes]);
 
   useEffect(() => {
-    const serializedEdges = edges.map((e) => ({
+    const serializedEdges: BrainEdgeData[] = edges.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
-      sourceHandle: e.sourceHandle,
-      targetHandle: e.targetHandle,
+      sourceHandle: e.sourceHandle || undefined,
+      targetHandle: e.targetHandle || undefined,
       etiqueta: typeof e.label === 'string' ? e.label : '',
     }));
     localStorage.setItem(`${STORAGE_KEY}_edges`, JSON.stringify(serializedEdges));
@@ -269,13 +288,124 @@ export default function App() {
     });
   }, []);
 
-  // Handler: Open Node Editor
-  const handleOpenEditNode = useCallback((nodeData: BrainNodeData) => {
-    setEditingNode(nodeData);
+  // Update Status handler
+  const handleUpdateStatus = useCallback((nodeId: string, status: NodeStatus) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              estado: status,
+            },
+          };
+        }
+        return n;
+      })
+    );
+  }, [setNodes]);
+
+  // Toggle Checklist Item handler
+  const handleToggleChecklist = useCallback((nodeId: string, itemId: string) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === nodeId) {
+          const d = n.data as unknown as BrainNodeData;
+          const updatedChecklist = (d.checklist || []).map((item) =>
+            item.id === itemId ? { ...item, completado: !item.completado } : item
+          );
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              checklist: updatedChecklist,
+            },
+          };
+        }
+        return n;
+      })
+    );
+  }, [setNodes]);
+
+  // Quick Capture Friction: Paste listener (Ctrl+V anywhere on window when not typing)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+
+      const pastedText = e.clipboardData?.getData('text')?.trim();
+      if (!pastedText) return;
+
+      const isUrl = pastedText.startsWith('http://') || pastedText.startsWith('https://');
+      const platform = isUrl ? detectarPlataforma(pastedText) : undefined;
+      const newId = `node-${Date.now()}`;
+
+      let newTitle = 'Captura Rápida (Pegado)';
+      if (isUrl) {
+        if (platform === 'instagram') newTitle = 'Reel / Publicación de Instagram';
+        else if (platform === 'youtube') newTitle = 'Video de YouTube';
+        else newTitle = 'Recurso Web Guardado';
+      } else {
+        newTitle = pastedText.slice(0, 45) + (pastedText.length > 45 ? '...' : '');
+      }
+
+      const newNode: Node = {
+        id: newId,
+        type: 'brainNode',
+        position: {
+          x: 240 + Math.random() * 200,
+          y: 180 + Math.random() * 150,
+        },
+        data: {
+          id: newId,
+          tipo: isUrl ? 'enlace' : 'nota',
+          titulo: newTitle,
+          contenido: pastedText,
+          categoriaId: categories[0]?.id || 'ingles',
+          estado: 'por_aprender',
+          etiquetas: ['captura-rapida'],
+          fechaCreacion: new Date().toISOString().split('T')[0],
+          razonModo: 'automatico',
+          razonManual: '',
+          plataforma: platform,
+        },
+      };
+
+      setNodes((nds) => [...nds, newNode]);
+      setQuickPasteFeedback(`¡Recurso capturado al instante desde portapapeles! (${newTitle})`);
+      setTimeout(() => setQuickPasteFeedback(null), 3800);
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [categories, setNodes]);
+
+  // Global Keyboard Shortcuts (Ctrl+K for Command Palette)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Handlers for Modals
+  const handleOpenEditNode = useCallback((node: BrainNodeData) => {
+    setEditingNode(node);
     setIsEditorOpen(true);
   }, []);
 
-  // Handler: Delete Node
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
@@ -284,23 +414,19 @@ export default function App() {
     [setNodes, setEdges]
   );
 
-  // Handler: Open Notion preview modal
-  const handleOpenNotionModal = useCallback((nodeData: BrainNodeData) => {
-    setNotionNode(nodeData);
+  const handleOpenNotionModal = useCallback((node: BrainNodeData) => {
+    setNotionNode(node);
     setIsNotionModalOpen(true);
   }, []);
 
-  // Handler: Open Node Detail modal (Ficha y Documento)
-  const handleOpenDetailNode = useCallback((nodeData: BrainNodeData) => {
-    setDetailNode(nodeData);
+  const handleOpenDetailNode = useCallback((node: BrainNodeData) => {
+    setDetailNode(node);
     setIsDetailModalOpen(true);
   }, []);
 
-  // Handler: Save Node (from modal)
   const handleSaveNode = useCallback(
     (nodeData: Partial<BrainNodeData>) => {
       if (editingNode) {
-        // Update existing node
         setNodes((nds) =>
           nds.map((n) => {
             if (n.id === editingNode.id) {
@@ -316,7 +442,6 @@ export default function App() {
           })
         );
       } else {
-        // Create new node
         const newId = `node-${Date.now()}`;
         const defaultPosition = {
           x: 200 + (nodes.length % 4) * 360,
@@ -333,6 +458,8 @@ export default function App() {
             titulo: nodeData.titulo || 'Nuevo Recurso',
             contenido: nodeData.contenido || '',
             categoriaId: nodeData.categoriaId || categories[0]?.id || 'ingles',
+            estado: nodeData.estado || 'por_aprender',
+            checklist: nodeData.checklist || [],
             etiquetas: nodeData.etiquetas || [],
             fechaCreacion: new Date().toISOString().split('T')[0],
             razonModo: nodeData.razonModo || 'manual',
@@ -482,12 +609,12 @@ export default function App() {
     return result;
   }, [detailNode, edges, nodes, categoryMap]);
 
-  // Filter and search matching
+  // Filtered and enriched nodes for canvas display
   const processedNodes = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
 
     return nodes
-      .filter((node) => !hiddenNodeIds.has(node.id))
+      .filter((n) => !hiddenNodeIds.has(n.id))
       .map((node) => {
         const data = node.data as unknown as BrainNodeData;
         const cat = categoryMap.get(data.categoriaId);
@@ -496,16 +623,11 @@ export default function App() {
         const content = (data.contenido || '').toLowerCase();
         const tags = (data.etiquetas || []).map((t) => t.toLowerCase());
 
-        // Category filter match
         const matchesCategory = !selectedCategory || data.categoriaId === selectedCategory;
-
-        // Type filter match
         const matchesType = selectedType === 'todos' || data.tipo === selectedType;
-
-        // Date filter match
+        const matchesStatus =
+          selectedStatus === 'todos' || (data.estado || 'por_aprender') === selectedStatus;
         const matchesDate = coincideFiltroFecha(data.fechaCreacion, selectedDate);
-
-        // Search match
         const matchesSearch =
           !q ||
           title.includes(q) ||
@@ -518,9 +640,11 @@ export default function App() {
           q.length > 0 ||
           selectedCategory !== null ||
           selectedType !== 'todos' ||
+          selectedStatus !== 'todos' ||
           selectedDate !== 'todas';
 
-        const matchesAll = matchesCategory && matchesType && matchesDate && matchesSearch;
+        const matchesAll =
+          matchesCategory && matchesType && matchesStatus && matchesDate && matchesSearch;
 
         const isHighlighted = q.length > 0 && matchesAll;
         const isDimmed = hasActiveFilter && !matchesAll;
@@ -544,6 +668,8 @@ export default function App() {
             onOpenNotionModal: handleOpenNotionModal,
             onToggleCollapse: handleToggleCollapse,
             onViewDetail: handleOpenDetailNode,
+            onUpdateStatus: handleUpdateStatus,
+            onToggleChecklist: handleToggleChecklist,
           },
         };
       });
@@ -553,6 +679,7 @@ export default function App() {
     searchQuery,
     selectedCategory,
     selectedType,
+    selectedStatus,
     selectedDate,
     categoryMap,
     childrenMap,
@@ -562,6 +689,8 @@ export default function App() {
     handleOpenNotionModal,
     handleToggleCollapse,
     handleOpenDetailNode,
+    handleUpdateStatus,
+    handleToggleChecklist,
   ]);
 
   // Count of items matching all active filters
@@ -577,6 +706,8 @@ export default function App() {
 
       const matchesCategory = !selectedCategory || data.categoriaId === selectedCategory;
       const matchesType = selectedType === 'todos' || data.tipo === selectedType;
+      const matchesStatus =
+        selectedStatus === 'todos' || (data.estado || 'por_aprender') === selectedStatus;
       const matchesDate = coincideFiltroFecha(data.fechaCreacion, selectedDate);
       const matchesSearch =
         !q ||
@@ -586,9 +717,9 @@ export default function App() {
         tags.some((t) => t.includes(q)) ||
         (cat?.nombre.toLowerCase().includes(q) ?? false);
 
-      return matchesCategory && matchesType && matchesDate && matchesSearch;
+      return matchesCategory && matchesType && matchesStatus && matchesDate && matchesSearch;
     }).length;
-  }, [nodes, searchQuery, selectedCategory, selectedType, selectedDate, categoryMap]);
+  }, [nodes, searchQuery, selectedCategory, selectedType, selectedStatus, selectedDate, categoryMap]);
 
   // Edges filtered by visible nodes
   const visibleEdges = useMemo(() => {
@@ -625,18 +756,15 @@ export default function App() {
       const items = columns[catId];
       if (items.length === 0) return;
 
-      // Sort items within column according to selectedDateSort
       items.sort((a, b) => {
         const da = a.data.fechaCreacion || '';
         const db = b.data.fechaCreacion || '';
-        return selectedDateSort === 'recientes'
-          ? db.localeCompare(da)
-          : da.localeCompare(db);
+        return selectedDateSort === 'recientes' ? db.localeCompare(da) : da.localeCompare(db);
       });
 
       items.forEach((item, rowIndex) => {
         newPositions.set(item.id, {
-          x: 80 + colIndex * spacingX,
+          x: 100 + colIndex * spacingX,
           y: 80 + rowIndex * spacingY,
         });
       });
@@ -652,59 +780,131 @@ export default function App() {
     );
 
     setTimeout(() => {
-      reactFlowInstance.current?.fitView({ padding: 0.2, duration: 400 });
+      reactFlowInstance.current?.fitView({ padding: 0.2 });
     }, 50);
-  }, [categories, nodes, setNodes, selectedDateSort]);
+  }, [categories, nodes, selectedDateSort, setNodes]);
 
-  // Export JSON Backup
-  const handleExportJSON = useCallback(() => {
-    const backupData = {
-      version: 1,
-      appName: 'Mi Segundo Cerebro',
-      exportedAt: new Date().toISOString(),
-      categories,
-      nodes: nodes.map((n) => ({
-        id: n.id,
-        position: n.position,
-        data: n.data,
-      })),
-      edges: edges.map((e) => ({
+  // Focus a specific node from Command Palette or Flashcards
+  const handleFocusNode = useCallback((nodeId: string) => {
+    const targetNode = nodes.find((n) => n.id === nodeId);
+    if (targetNode && reactFlowInstance.current) {
+      reactFlowInstance.current.setCenter(
+        targetNode.position.x + 170,
+        targetNode.position.y + 120,
+        { zoom: 1.2, duration: 800 }
+      );
+    }
+  }, [nodes]);
+
+  // Extract raw node data for metrics and modals
+  const rawNodesList = useMemo(
+    () => nodes.map((n) => n.data as unknown as BrainNodeData),
+    [nodes]
+  );
+  
+  const rawEdgesList: BrainEdgeData[] = useMemo(
+    () =>
+      edges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
+        sourceHandle: e.sourceHandle || undefined,
+        targetHandle: e.targetHandle || undefined,
         etiqueta: typeof e.label === 'string' ? e.label : '',
       })),
-    };
-
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `mi-segundo-cerebro-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [categories, nodes, edges]);
-
-  // Export Full Document (Dossier Markdown or HTML)
-  const handleExportDocument = useCallback(
-    (format: 'md' | 'html') => {
-      const nodesToExport = processedNodes.map((n) => n.data as unknown as BrainNodeData);
-      const dateStr = new Date().toISOString().split('T')[0];
-
-      if (format === 'md') {
-        const md = generarDossierCompletoMarkdown(nodesToExport, categories);
-        descargarArchivo(`mi-segundo-cerebro-dossier-${dateStr}.md`, md, 'text/markdown');
-      } else {
-        const html = generarDossierCompletoHTML(nodesToExport, categories);
-        descargarArchivo(`mi-segundo-cerebro-dossier-${dateStr}.html`, html, 'text/html');
-      }
-    },
-    [processedNodes, categories]
+    [edges]
   );
 
-  // Import JSON Backup
+  // Current Backup Data Object for Local / Drive Sync
+  const currentBackupData: ExportBackupData = useMemo(() => {
+    const rawNodes = nodes.map((n) => ({
+      id: n.id,
+      position: n.position,
+      data: n.data as unknown as BrainNodeData,
+    }));
+
+    return {
+      version: '1.2.0',
+      exportDate: new Date().toISOString(),
+      nodes: rawNodes,
+      edges: rawEdgesList,
+      categories,
+    };
+  }, [nodes, rawEdgesList, categories]);
+
+  // Restore data from Drive or JSON
+  const handleRestoreData = useCallback(
+    (data: ExportBackupData | DriveBackupPayload) => {
+      if (data.categories && Array.isArray(data.categories)) {
+        setCategories(data.categories);
+      }
+      if (data.nodes && Array.isArray(data.nodes)) {
+        setNodes(
+          data.nodes.map((n: any, index: number) => {
+            // Check if node has 'position' (ExportBackupData) or is raw node data (DriveBackupPayload)
+            const position = n.position || {
+              x: 200 + (index % 4) * 360,
+              y: 120 + Math.floor(index / 4) * 340,
+            };
+            const nodeData = n.data || n;
+            return {
+              id: nodeData.id || `node-${index}-${Date.now()}`,
+              type: 'brainNode',
+              position,
+              data: nodeData as unknown as Record<string, unknown>,
+            };
+          })
+        );
+      }
+      if (data.edges && Array.isArray(data.edges)) {
+        setEdges(
+          data.edges.map((e: BrainEdgeData) => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle || 'bottom',
+            targetHandle: e.targetHandle || 'top',
+            label: e.etiqueta,
+            animated: true,
+            reconnectable: true,
+            style: { stroke: '#38bdf8', strokeWidth: 2.5 },
+            labelStyle: { fill: '#94a3b8', fontSize: 11, fontWeight: 500 },
+            labelBgStyle: { fill: '#0f172a', fillOpacity: 0.95, stroke: '#334155', strokeWidth: 1, rx: 6, ry: 6 },
+            labelBgPadding: [6, 4] as [number, number],
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: '#38bdf8',
+              width: 14,
+              height: 14,
+            },
+          }))
+        );
+      }
+      setTimeout(() => {
+        reactFlowInstance.current?.fitView({ padding: 0.2 });
+      }, 100);
+    },
+    [setNodes, setEdges]
+  );
+
+  // Export Complete Backup JSON
+  const handleExportJSON = useCallback(() => {
+    const jsonStr = JSON.stringify(currentBackupData, null, 2);
+    descargarArchivo(jsonStr, `segundo_cerebro_backup_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+  }, [currentBackupData]);
+
+  // Export Complete Dossier Document
+  const handleExportDocument = useCallback((format: 'md' | 'html') => {
+    if (format === 'md') {
+      const content = generarDossierCompletoMarkdown(rawNodesList, categories);
+      descargarArchivo(content, `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.md`, 'text/markdown');
+    } else {
+      const content = generarDossierCompletoHTML(rawNodesList, categories);
+      descargarArchivo(content, `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.html`, 'text/html');
+    }
+  }, [rawNodesList, categories]);
+
+  // Import JSON file locally
   const handleImportJSON = useCallback(
     (file: File) => {
       const reader = new FileReader();
@@ -712,54 +912,14 @@ export default function App() {
         try {
           const content = e.target?.result as string;
           const parsed = JSON.parse(content);
-
-          if (parsed.categories && Array.isArray(parsed.categories)) {
-            setCategories(parsed.categories);
-          }
-
-          if (parsed.nodes && Array.isArray(parsed.nodes)) {
-            setNodes(
-              parsed.nodes.map((n: CanvasNodeItem) => ({
-                id: n.id,
-                type: 'brainNode',
-                position: n.position || { x: 100, y: 100 },
-                data: n.data as unknown as Record<string, unknown>,
-              }))
-            );
-          }
-
-          if (parsed.edges && Array.isArray(parsed.edges)) {
-            setEdges(
-              parsed.edges.map((edge: BrainEdgeData) => ({
-                id: edge.id,
-                source: edge.source,
-                target: edge.target,
-                sourceHandle: edge.sourceHandle || 'bottom',
-                targetHandle: edge.targetHandle || 'top',
-                label: edge.etiqueta,
-                animated: true,
-                reconnectable: true,
-                style: { stroke: '#38bdf8', strokeWidth: 2.5 },
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-                  color: '#38bdf8',
-                  width: 14,
-                  height: 14,
-                },
-              }))
-            );
-          }
-
-          setTimeout(() => {
-            reactFlowInstance.current?.fitView({ padding: 0.2 });
-          }, 100);
+          handleRestoreData(parsed);
         } catch (err) {
           alert('Error al importar el archivo JSON. Verifica que sea un respaldo válido.');
         }
       };
       reader.readAsText(file);
     },
-    [setNodes, setEdges]
+    [handleRestoreData]
   );
 
   // Reset to Demo Data
@@ -803,22 +963,6 @@ export default function App() {
     }
   }, [setNodes, setEdges]);
 
-  // Extract raw node data for metrics
-  const rawNodesList = useMemo(
-    () => nodes.map((n) => n.data as unknown as BrainNodeData),
-    [nodes]
-  );
-  const rawEdgesList = useMemo(
-    () =>
-      edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        etiqueta: typeof e.label === 'string' ? e.label : '',
-      })),
-    [edges]
-  );
-
   return (
     <div 
       className="flex flex-col h-screen w-screen text-slate-100 overflow-hidden font-arial select-none"
@@ -831,6 +975,8 @@ export default function App() {
         onSelectCategory={setSelectedCategory}
         selectedType={selectedType}
         onSelectType={setSelectedType}
+        selectedStatus={selectedStatus}
+        onSelectStatus={setSelectedStatus}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
         selectedDateSort={selectedDateSort}
@@ -845,6 +991,10 @@ export default function App() {
         onOpenStats={() => setIsStatsOpen(true)}
         onOpenPalette={() => setIsPaletteModalOpen(true)}
         onOpenManual={() => setIsManualOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenReviewModal={() => setIsReviewModalOpen(true)}
+        onOpenDriveModal={() => setIsDriveModalOpen(true)}
+        onOpenAspectsHub={() => setIsAspectsHubOpen(true)}
         onExportJSON={handleExportJSON}
         onExportDocument={handleExportDocument}
         onImportJSON={handleImportJSON}
@@ -859,6 +1009,14 @@ export default function App() {
         className="flex-1 relative w-full h-full"
         style={{ backgroundColor: palette.dominant60.base }}
       >
+        {/* Quick Paste Notification Toast */}
+        {quickPasteFeedback && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-emerald-950/95 border border-emerald-500/80 text-emerald-200 px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-3">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{quickPasteFeedback}</span>
+          </div>
+        )}
+
         <ReactFlow
           nodes={processedNodes}
           edges={visibleEdges}
@@ -895,23 +1053,45 @@ export default function App() {
               return cat?.color || palette.accent10.primary;
             }}
             maskColor="rgba(15, 23, 42, 0.75)"
-            className="!bg-slate-950 !border-slate-800"
+            className="!bg-slate-950 !border-slate-800 hidden sm:block"
             zoomable
             pannable
           />
         </ReactFlow>
 
-        {/* Floating Quick Hint Badge */}
-        <div className="absolute bottom-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 shadow-xl hidden sm:flex items-center gap-2 font-arial">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>4 puntos de conexión por cuadro: arrastra para conectar o cambiar extremos</span>
+        {/* Floating Quick Navigation & Tool Badges */}
+        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-10 flex items-center gap-1.5 sm:gap-2 font-arial flex-wrap max-w-[calc(100vw-24px)] pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => setIsAspectsHubOpen(true)}
+            className="bg-slate-900/95 hover:bg-slate-800 border border-sky-600/70 rounded-xl px-2.5 py-1.5 text-[11px] text-sky-300 font-bold shadow-xl flex items-center gap-1.5 transition-colors active:scale-95"
+            title="Centro de control integral con todas las funciones"
+          >
+            <Compass className="w-3.5 h-3.5 text-sky-400" />
+            <span>Aspectos</span>
+          </button>
+
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 shadow-xl hidden md:flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Tip: Presiona <kbd className="px-1 py-0.5 bg-slate-800 rounded font-mono text-[10px] text-sky-300 border border-slate-700">Ctrl+V</kbd> para capturar enlaces al instante</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="bg-slate-900/90 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-sky-300 font-semibold shadow-xl flex items-center gap-1.5 transition-colors"
+          >
+            <Command className="w-3 h-3 text-sky-400" />
+            <span>Comandos (Ctrl+K)</span>
+          </button>
+
           <button 
             type="button"
             onClick={() => setIsManualOpen(true)}
-            className="ml-1 text-orange-400 hover:text-orange-300 font-bold underline underline-offset-2 flex items-center gap-1 cursor-pointer transition-colors"
+            className="bg-slate-900/90 hover:bg-slate-800 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-orange-300 font-semibold shadow-xl hidden sm:flex items-center gap-1.5 transition-colors"
           >
-            <BookOpen className="w-3 h-3" />
-            <span>Manual de Instrucciones</span>
+            <BookOpen className="w-3 h-3 text-orange-400" />
+            <span>Guía</span>
           </button>
         </div>
       </main>
@@ -998,6 +1178,83 @@ export default function App() {
         onClose={() => setIsPaletteModalOpen(false)}
         currentPalette={palette}
         onSelectPalette={handlePaletteSelect}
+      />
+
+      {/* Command Palette Modal (Ctrl+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        nodes={rawNodesList}
+        categories={categories}
+        onSelectNode={(nodeId) => {
+          handleFocusNode(nodeId);
+          const found = nodes.find(n => n.id === nodeId);
+          if (found) {
+            handleOpenDetailNode(found.data as unknown as BrainNodeData);
+          }
+        }}
+        onNewNode={() => {
+          setEditingNode(null);
+          setIsEditorOpen(true);
+        }}
+        onOpenStudyReview={() => setIsReviewModalOpen(true)}
+        onOpenGoogleDrive={() => setIsDriveModalOpen(true)}
+      />
+
+      {/* Spaced Repetition / Flashcards Study Review Modal */}
+      <StudyReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        nodes={rawNodesList}
+        categories={categories}
+        onUpdateNodeStatus={handleUpdateStatus}
+        onFocusNode={handleFocusNode}
+      />
+
+      {/* Google Drive Cloud Backup & Sync Modal */}
+      <GoogleDriveSyncModal
+        isOpen={isDriveModalOpen}
+        onClose={() => setIsDriveModalOpen(false)}
+        nodes={rawNodesList}
+        edges={rawEdgesList}
+        categories={categories}
+        currentUser={currentUser}
+        onAuthChange={setCurrentUser}
+        onRestoreBackup={handleRestoreData}
+      />
+
+      {/* Centralized Aspects & Features Hub Modal */}
+      <AspectsHubModal
+        isOpen={isAspectsHubOpen}
+        onClose={() => setIsAspectsHubOpen(false)}
+        onOpenCreateModal={() => {
+          setEditingNode(null);
+          setIsEditorOpen(true);
+        }}
+        onOpenReviewModal={() => setIsReviewModalOpen(true)}
+        onOpenDriveModal={() => setIsDriveModalOpen(true)}
+        onOpenStats={() => setIsStatsOpen(true)}
+        onAutoLayout={handleAutoLayout}
+        onOpenPalette={() => setIsPaletteModalOpen(true)}
+        onOpenManual={() => setIsManualOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onExportDocument={handleExportDocument}
+        onExportJSON={handleExportJSON}
+        onTriggerImport={() => hubFileInputRef.current?.click()}
+        onResetDemo={handleResetDemo}
+        totalNodes={nodes.length}
+      />
+
+      <input
+        ref={hubFileInputRef}
+        type="file"
+        accept=".json"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportJSON(file);
+          e.target.value = '';
+        }}
+        className="hidden"
       />
     </div>
   );

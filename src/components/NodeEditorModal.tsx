@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrainNodeData, Category, NodeType } from '../types';
+import { BrainNodeData, Category, NodeType, NodeStatus, ChecklistItem } from '../types';
 import { generarRazonAutomatica, detectarPlataforma } from '../utils/textUtils';
 import { 
   X, 
@@ -9,9 +9,12 @@ import {
   Image as ImageIcon, 
   Plus, 
   Check, 
-  Link as LinkIcon,
   Tag,
-  AlertCircle
+  CheckSquare,
+  Trash2,
+  Award,
+  Zap,
+  HelpCircle
 } from 'lucide-react';
 
 interface NodeEditorModalProps {
@@ -35,6 +38,9 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
   const [titulo, setTitulo] = useState('');
   const [contenido, setContenido] = useState('');
   const [categoriaId, setCategoriaId] = useState(categories[0]?.id || 'ingles');
+  const [estado, setEstado] = useState<NodeStatus>('por_aprender');
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [newChecklistText, setNewChecklistText] = useState('');
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [imagenUrl, setImagenUrl] = useState('');
@@ -54,6 +60,8 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
       setTitulo(initialData.titulo);
       setContenido(initialData.contenido);
       setCategoriaId(initialData.categoriaId);
+      setEstado(initialData.estado || 'por_aprender');
+      setChecklist(initialData.checklist || []);
       setEtiquetas(initialData.etiquetas || []);
       setImagenUrl(initialData.imagenUrl || '');
       setRazonModo(initialData.razonModo || 'manual');
@@ -63,12 +71,15 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
       setTitulo('');
       setContenido('');
       setCategoriaId(categories[0]?.id || 'ingles');
+      setEstado('por_aprender');
+      setChecklist([]);
       setEtiquetas([]);
       setImagenUrl('');
       setRazonModo('manual');
       setRazonManual('');
     }
     setShowNewCategory(false);
+    setNewChecklistText('');
   }, [initialData, isOpen, categories]);
 
   if (!isOpen) return null;
@@ -88,6 +99,29 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
 
   const handleRemoveTag = (tagToRemove: string) => {
     setEtiquetas(etiquetas.filter(t => t !== tagToRemove));
+  };
+
+  const handleAddChecklistItem = () => {
+    if (!newChecklistText.trim()) return;
+    const newItem: ChecklistItem = {
+      id: `step-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      texto: newChecklistText.trim(),
+      completado: false,
+    };
+    setChecklist([...checklist, newItem]);
+    setNewChecklistText('');
+  };
+
+  const handleToggleChecklistItem = (id: string) => {
+    setChecklist(
+      checklist.map((item) =>
+        item.id === id ? { ...item, completado: !item.completado } : item
+      )
+    );
+  };
+
+  const handleRemoveChecklistItem = (id: string) => {
+    setChecklist(checklist.filter((item) => item.id !== id));
   };
 
   const handleCreateCategory = (e: React.FormEvent) => {
@@ -121,6 +155,8 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
       titulo: titulo.trim(),
       contenido: contenido.trim(),
       categoriaId,
+      estado,
+      checklist,
       etiquetas,
       imagenUrl: imagenUrl.trim() || undefined,
       plataforma: detectedPlatform,
@@ -133,16 +169,22 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150 font-arial">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150 font-arial">
+      <div 
+        className="relative w-full max-w-2xl border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]"
+        style={{
+          backgroundColor: 'var(--color-sec-30-surface, #022436)',
+          borderColor: 'var(--color-sec-30-border, #0d4364)',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-950/60">
           <div>
-            <h2 className="text-base font-bold text-slate-100 font-vanguard uppercase tracking-wider">
-              {initialData ? 'Editar Nodo de Aprendizaje' : 'Nuevo Nodo en tu Segundo Cerebro'}
+            <h2 className="text-sm sm:text-base font-bold text-slate-100 font-vanguard uppercase tracking-wider">
+              {initialData ? 'Editar Recurso de Aprendizaje' : 'Nuevo Nodo en tu Segundo Cerebro'}
             </h2>
-            <p className="text-xs text-slate-400 font-arial">
-              Registra enlaces, notas o imágenes con contexto visual y la razón de tu estudio.
+            <p className="text-[11px] sm:text-xs text-slate-400 font-arial">
+              Registra el conocimiento con pasos prácticos y la razón por la que te servirá.
             </p>
           </div>
           <button
@@ -154,7 +196,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
           {/* Tipo de Nodo */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -202,11 +244,59 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
             </div>
           </div>
 
+          {/* Estado de Dominio Cognitivo */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span>Estado de Dominio Cognitivo</span>
+              <span className="text-[10px] text-slate-500 font-normal">(Permite saber qué te falta repasar)</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setEstado('por_aprender')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-1.5 transition-all ${
+                  estado === 'por_aprender'
+                    ? 'bg-rose-950/70 border-rose-600 text-rose-300 ring-1 ring-rose-500'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>○ Por Aprender</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEstado('en_practica')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-1.5 transition-all ${
+                  estado === 'en_practica'
+                    ? 'bg-amber-950/70 border-amber-600 text-amber-300 ring-1 ring-amber-500'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>⚡ En Práctica</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEstado('dominado')}
+                className={`py-2 px-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-1.5 transition-all ${
+                  estado === 'dominado'
+                    ? 'bg-emerald-950/70 border-emerald-600 text-emerald-300 ring-1 ring-emerald-500'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <Award className="w-3.5 h-3.5 text-emerald-400" />
+                <span>✓ Dominado</span>
+              </button>
+            </div>
+          </div>
+
           {/* Categoría Selector + Nueva Categoría */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Tema / Categoría
+                Materia / Categoría
               </label>
               <button
                 type="button"
@@ -214,7 +304,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
                 className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 font-medium transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                {showNewCategory ? 'Cancelar' : 'Añadir nuevo tema'}
+                {showNewCategory ? 'Cancelar' : 'Añadir nueva materia'}
               </button>
             </div>
 
@@ -223,7 +313,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Nombre del tema (ej. Inglés, Robótica, Finanzas...)"
+                    placeholder="Nombre de la materia (ej. Inglés, Negocios, Photoshop...)"
                     value={newCatName}
                     onChange={(e) => setNewCatName(e.target.value)}
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
@@ -233,14 +323,14 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
                     value={newCatColor}
                     onChange={(e) => setNewCatColor(e.target.value)}
                     className="w-8 h-8 rounded-lg border border-slate-700 cursor-pointer bg-slate-900"
-                    title="Color del tema"
+                    title="Color de la materia"
                   />
                   <button
                     type="button"
                     onClick={handleCreateCategory}
                     className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-semibold rounded-lg transition-colors"
                   >
-                    Guardar Tema
+                    Guardar Materia
                   </button>
                 </div>
               </div>
@@ -300,7 +390,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
               <span>{tipo === 'enlace' ? 'Enlace (URL del Reel / Web / YouTube)' : tipo === 'nota' ? 'Nota o Apunte de Estudio' : 'URL de la Imagen'}</span>
               {tipo === 'enlace' && (
                 <span className="text-[11px] text-pink-400 font-normal">
-                  Soporta reels de Instagram, videos y artículos
+                  Soporta reels de Instagram, videos y enlaces web
                 </span>
               )}
             </label>
@@ -327,6 +417,76 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
                 onChange={(e) => setContenido(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 font-mono"
               />
+            )}
+          </div>
+
+          {/* Checklist de pasos prácticos accionables */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                Pasos Accionables / Lista de Práctica (Opcional)
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {checklist.filter((c) => c.completado).length}/{checklist.length} completados
+              </span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Ej: 1. Descargar presets de curvas, 2. Aplicar en foto de prueba..."
+                value={newChecklistText}
+                onChange={(e) => setNewChecklistText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddChecklistItem();
+                  }
+                }}
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddChecklistItem}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors"
+              >
+                Añadir Paso
+              </button>
+            </div>
+
+            {checklist.length > 0 && (
+              <div className="space-y-1.5 pt-1 max-h-32 overflow-y-auto">
+                {checklist.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-slate-900/80 border border-slate-800/90 text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleToggleChecklistItem(item.id)}
+                      className="flex items-center gap-2 text-left flex-1"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.completado}
+                        onChange={() => {}}
+                        className="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-0 cursor-pointer"
+                      />
+                      <span className={item.completado ? 'line-through text-slate-500' : 'text-slate-200'}>
+                        {item.texto}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveChecklistItem(item.id)}
+                      className="text-slate-500 hover:text-red-400 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -460,18 +620,19 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
         </form>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-2.5">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            className="px-3.5 sm:px-4 py-2 text-xs font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-5 py-2 text-xs font-semibold rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors shadow-lg shadow-sky-500/20 flex items-center gap-1.5"
+            className="px-4 sm:px-5 py-2 text-xs font-semibold rounded-xl text-white transition-all shadow-lg flex items-center gap-1.5"
+            style={{ backgroundColor: 'var(--color-acc-10-primary, #FF4103)' }}
           >
             <Check className="w-4 h-4" />
             {initialData ? 'Actualizar Nodo' : 'Crear en el Mapa'}

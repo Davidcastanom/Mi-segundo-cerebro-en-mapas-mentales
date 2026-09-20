@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
-import { BrainNodeData, Category } from '../types';
+import { BrainNodeData, Category, NodeStatus } from '../types';
 import { obtenerRazonEfectiva, formatearFechaLegible } from '../utils/textUtils';
 import { 
   Instagram, 
@@ -16,7 +16,9 @@ import {
   Sparkles,
   Youtube,
   Calendar,
-  Eye
+  Eye,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 export type BrainCanvasNodeData = BrainNodeData & {
@@ -28,6 +30,8 @@ export type BrainCanvasNodeData = BrainNodeData & {
   onOpenNotionModal?: (node: BrainNodeData) => void;
   onToggleCollapse?: (id: string) => void;
   onViewDetail?: (node: BrainNodeData) => void;
+  onUpdateStatus?: (nodeId: string, status: NodeStatus) => void;
+  onToggleChecklist?: (nodeId: string, itemId: string) => void;
 };
 
 export type CustomNodeProps = NodeProps<Node<BrainCanvasNodeData>>;
@@ -36,6 +40,41 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
   const category = data.category;
   const categoryColor = category?.color || '#64748b';
   const effectiveReason = obtenerRazonEfectiva(data);
+
+  const currentStatus: NodeStatus = data.estado || 'por_aprender';
+
+  const cycleStatus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextStatus: Record<NodeStatus, NodeStatus> = {
+      por_aprender: 'en_practica',
+      en_practica: 'dominado',
+      dominado: 'por_aprender',
+    };
+    data.onUpdateStatus?.(data.id, nextStatus[currentStatus]);
+  };
+
+  const getStatusBadge = () => {
+    switch (currentStatus) {
+      case 'dominado':
+        return {
+          label: '✓ Dominado',
+          classes: 'bg-emerald-950/80 text-emerald-300 border-emerald-800 hover:bg-emerald-900',
+        };
+      case 'en_practica':
+        return {
+          label: '⚡ En Práctica',
+          classes: 'bg-amber-950/80 text-amber-300 border-amber-800 hover:bg-amber-900',
+        };
+      case 'por_aprender':
+      default:
+        return {
+          label: '○ Por Aprender',
+          classes: 'bg-rose-950/80 text-rose-300 border-rose-800 hover:bg-rose-900',
+        };
+    }
+  };
+
+  const statusInfo = getStatusBadge();
 
   const getIcon = () => {
     if (data.tipo === 'enlace') {
@@ -62,6 +101,8 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
   };
 
   const isInstagram = data.tipo === 'enlace' && (data.plataforma === 'instagram' || data.contenido.includes('instagram.com'));
+  const checklistItems = data.checklist || [];
+  const completedChecklistCount = checklistItems.filter((i) => i.completado).length;
 
   return (
     <div
@@ -127,11 +168,11 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
           data.onViewDetail?.(data);
         }}
       >
-        {/* Header Row: Category Badge + Type + Actions */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Header Row: Category Badge + Type + Status + Actions */}
+        <div className="flex items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             <span
-              className="px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide border flex items-center gap-1"
+              className="px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border flex items-center gap-1"
               style={{
                 backgroundColor: `${categoryColor}18`,
                 borderColor: `${categoryColor}40`,
@@ -144,6 +185,16 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
               {getIcon()}
               <span>{getTypeLabel()}</span>
             </span>
+
+            {/* Cognitive Mastery Status Pill */}
+            <button
+              type="button"
+              onClick={cycleStatus}
+              title="Haz clic para cambiar el estado de dominio: Por Aprender ➔ En Práctica ➔ Dominado"
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${statusInfo.classes}`}
+            >
+              {statusInfo.label}
+            </button>
           </div>
 
           {/* Action Buttons */}
@@ -274,6 +325,41 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
           </p>
         </div>
 
+        {/* Checklist Steps Preview if available */}
+        {checklistItems.length > 0 && (
+          <div className="p-2 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <span className="flex items-center gap-1">
+                <CheckSquare className="w-3 h-3 text-emerald-400" /> Pasos Accionables
+              </span>
+              <span className="font-mono text-[10px] text-slate-400">
+                {completedChecklistCount}/{checklistItems.length}
+              </span>
+            </div>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {checklistItems.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onToggleChecklist?.(data.id, item.id);
+                  }}
+                  className="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer py-0.5 group/item"
+                >
+                  {item.completado ? (
+                    <CheckSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5 text-slate-500 group-hover/item:text-slate-300 shrink-0" />
+                  )}
+                  <span className={`text-[11px] truncate ${item.completado ? 'line-through text-slate-500' : ''}`}>
+                    {item.texto}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tags & Date Footer */}
         <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px] text-slate-400 gap-2">
           <div className="flex items-center gap-1.5 flex-wrap max-w-[170px] overflow-hidden">
@@ -301,7 +387,7 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
                   e.stopPropagation();
                   data.onToggleCollapse?.(data.id);
                 }}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium border border-slate-700 transition-colors"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium border border-slate-700 transition-colors"
                 title={data.isCollapsed ? 'Expandir ramas conectadas' : 'Colapsar ramas conectadas'}
               >
                 {data.isCollapsed ? (

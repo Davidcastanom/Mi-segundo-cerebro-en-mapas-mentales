@@ -1,4 +1,11 @@
 export type NodeType = 'enlace' | 'nota' | 'imagen';
+export type NodeStatus = 'por_aprender' | 'en_practica' | 'dominado';
+
+export interface ChecklistItem {
+  id: string;
+  texto: string;
+  completado: boolean;
+}
 
 export interface Category {
   id: string;
@@ -19,6 +26,12 @@ export interface BrainNodeData {
   etiquetas: string[];
   fechaCreacion: string;
   
+  // Estado de dominio cognitivo
+  estado?: NodeStatus; // 'por_aprender' | 'en_practica' | 'dominado'
+  
+  // Lista de verificación práctica / pasos accionables
+  checklist?: ChecklistItem[];
+
   // Razón / Motivo de guardado (Requisito 10 y 11 del usuario)
   razonModo: 'manual' | 'automatico';
   razonManual?: string;
@@ -41,6 +54,7 @@ export interface BrainNodeData {
 
 export type DateFilterType = 'todas' | 'hoy' | '7dias' | '30dias' | 'esteMes';
 export type DateSortType = 'recientes' | 'antiguos';
+export type StatusFilterType = 'todos' | NodeStatus;
 
 export interface BrainEdgeData {
   id: string;
@@ -55,7 +69,20 @@ export interface FilterState {
   busqueda: string;
   categoriaId: string | null;
   tipo: NodeType | 'todos';
+  estado?: StatusFilterType;
   fecha: DateFilterType;
   ordenFecha?: DateSortType;
   soloConectados: boolean;
+}
+
+export interface ExportBackupData {
+  version: string;
+  exportDate: string;
+  nodes: {
+    id: string;
+    position: { x: number; y: number };
+    data: BrainNodeData;
+  }[];
+  edges: BrainEdgeData[];
+  categories: Category[];
 }
