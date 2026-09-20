@@ -1,0 +1,6 @@
+{
+  "name": "Mi Segundo Cerebro",
+  "description": "Bitácora visual de aprendizaje y mapa conceptual interactivo para organizar reels, notas e imágenes por temas y exportar tarjetas enriquecidas a Notion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
