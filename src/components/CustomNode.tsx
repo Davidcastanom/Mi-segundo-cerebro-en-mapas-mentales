@@ -1,7 +1,14 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { BrainNodeData, Category, NodeStatus } from '../types';
-import { obtenerRazonEfectiva, formatearFechaLegible } from '../utils/textUtils';
+import { 
+  obtenerRazonEfectiva, 
+  formatearFechaLegible,
+  extraerYouTubeId,
+  extraerYouTubeTimestamp,
+  obtenerYouTubeThumbnail,
+  obtenerYouTubeEmbedUrl
+} from '../utils/textUtils';
 import { 
   Instagram, 
   Globe, 
@@ -20,7 +27,10 @@ import {
   CheckSquare,
   Square,
   Tag,
-  Plus
+  Plus,
+  Play,
+  Maximize2,
+  X
 } from 'lucide-react';
 
 export type BrainCanvasNodeData = BrainNodeData & {
@@ -34,14 +44,23 @@ export type BrainCanvasNodeData = BrainNodeData & {
   onViewDetail?: (node: BrainNodeData) => void;
   onUpdateStatus?: (nodeId: string, status: NodeStatus) => void;
   onToggleChecklist?: (nodeId: string, itemId: string) => void;
+  onPlayFloatingVideo?: (videoId: string, title: string, nodeId?: string, timestamp?: number | null) => void;
 };
 
 export type CustomNodeProps = NodeProps<Node<BrainCanvasNodeData>>;
 
 export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
+  const [isPlayingInline, setIsPlayingInline] = useState(false);
   const category = data.category;
   const categoryColor = category?.color || '#64748b';
   const effectiveReason = obtenerRazonEfectiva(data);
+
+  // Detección robusta de videos de YouTube
+  const youtubeVideoId = extraerYouTubeId(data.contenido) || extraerYouTubeId(data.urlOriginal);
+  const isYouTube = Boolean(youtubeVideoId);
+  const youtubeThumb = youtubeVideoId 
+    ? (data.imagenUrl || obtenerYouTubeThumbnail(youtubeVideoId, 'hq'))
+    : null;
 
   const currentStatus: NodeStatus = data.estado || 'por_aprender';
 
@@ -79,12 +98,12 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
   const statusInfo = getStatusBadge();
 
   const getIcon = () => {
+    if (isYouTube) {
+      return <Youtube className="w-4 h-4 text-red-500" />;
+    }
     if (data.tipo === 'enlace') {
       if (data.plataforma === 'instagram' || data.contenido.includes('instagram.com')) {
         return <Instagram className="w-4 h-4 text-pink-400" />;
-      }
-      if (data.plataforma === 'youtube' || data.contenido.includes('youtube.com')) {
-        return <Youtube className="w-4 h-4 text-red-400" />;
       }
       return <Globe className="w-4 h-4 text-sky-400" />;
     }
@@ -95,6 +114,7 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
   };
 
   const getTypeLabel = () => {
+    if (isYouTube) return 'Video';
     if (data.tipo === 'enlace') {
       return data.plataforma === 'instagram' ? 'Reel' : 'Enlace';
     }
@@ -252,21 +272,148 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
         {/* Media or Content Preview */}
         {data.tipo === 'enlace' && (
           <div className="space-y-2">
-            {data.imagenUrl && (
-              <div className="relative h-28 w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group/img">
-                <img
-                  src={data.imagenUrl}
-                  alt={data.titulo}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
-                />
-                {isInstagram && (
-                  <div className="absolute top-2 left-2 bg-pink-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 font-arial">
-                    <Instagram className="w-3 h-3" /> Reel
+            {isYouTube && youtubeVideoId ? (
+              /* Bloque Profesional para Videos de YouTube */
+              isPlayingInline ? (
+                /* Reproductor Embebido Interactivo dentro del Nodo */
+                <div className="nodrag nopan space-y-2 animate-in fade-in duration-200">
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-red-900/80 shadow-2xl">
+                    <iframe
+                      src={obtenerYouTubeEmbedUrl(youtubeVideoId, extraerYouTubeTimestamp(data.contenido), true)}
+                      title={data.titulo}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center justify-between gap-1 text-[11px] px-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlayingInline(false);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white flex items-center gap-1 transition-colors border border-slate-700 text-[11px]"
+                      title="Detener y contraer reproductor"
+                    >
+                      <X className="w-3 h-3 text-red-400" />
+                      <span>Cerrar video</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlayingInline(false);
+                        data.onPlayFloatingVideo?.(
+                          youtubeVideoId,
+                          data.titulo,
+                          data.id,
+                          extraerYouTubeTimestamp(data.contenido)
+                        );
+                      }}
+                      className="px-2 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 text-sky-200 flex items-center gap-1 transition-colors border border-sky-800/80 text-[11px]"
+                      title="Pasar al reproductor flotante para explorar el mapa sin interrupciones"
+                    >
+                      <Maximize2 className="w-3 h-3 text-sky-400" />
+                      <span>Modo flotante</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Tarjeta de Vista Previa de Video con Portada y Botón Play */
+                <div className="space-y-2">
+                  <div 
+                    className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group/video cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsPlayingInline(true);
+                    }}
+                    title="Haz clic para reproducir el video aquí"
+                  >
+                    <img
+                      src={youtubeThumb || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80'}
+                      alt={data.titulo}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover/video:scale-105 transition-transform duration-300"
+                    />
+
+                    {/* Overlay con botón Play prominente */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 flex items-center justify-center transition-colors group-hover/video:from-black/70">
+                      <div 
+                        className="w-11 h-11 rounded-full bg-red-600 group-hover/video:bg-red-500 text-white shadow-2xl flex items-center justify-center group-hover/video:scale-110 active:scale-95 transition-all duration-200"
+                        style={{ boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}
+                      >
+                        <Play className="w-5 h-5 ml-0.5 fill-white" />
+                      </div>
+                    </div>
+
+                    {/* Insignia YouTube */}
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow flex items-center gap-1 tracking-wide">
+                      <Youtube className="w-3 h-3" />
+                      <span>YouTube</span>
+                    </div>
+
+                    {/* Indicador de acción al pie de la miniatura */}
+                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm text-slate-200 text-[10px] font-medium px-2 py-0.5 rounded border border-white/10 flex items-center gap-1">
+                      <Play className="w-2.5 h-2.5 fill-red-400 text-red-400" />
+                      <span>Reproducir aquí</span>
+                    </div>
+                  </div>
+
+                  {/* Botones de acción directa */}
+                  <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlayingInline(true);
+                      }}
+                      className="p-1.5 rounded-lg bg-red-950/70 hover:bg-red-900/80 text-red-200 hover:text-white border border-red-800/70 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      title="Ver video incrustado en esta tarjeta"
+                    >
+                      <Play className="w-3 h-3 fill-red-400 text-red-400" />
+                      <span>Ver en nodo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        data.onPlayFloatingVideo?.(
+                          youtubeVideoId,
+                          data.titulo,
+                          data.id,
+                          extraerYouTubeTimestamp(data.contenido)
+                        );
+                      }}
+                      className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-sky-300 border border-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      title="Abrir en reproductor flotante para navegar por el mapa"
+                    >
+                      <Maximize2 className="w-3 h-3 text-sky-400" />
+                      <span>Flotante (PiP)</span>
+                    </button>
+                  </div>
+                </div>
+              )
+            ) : (
+              /* Enlace normal / Instagram */
+              data.imagenUrl && (
+                <div className="relative h-28 w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group/img">
+                  <img
+                    src={data.imagenUrl}
+                    alt={data.titulo}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                  />
+                  {isInstagram && (
+                    <div className="absolute top-2 left-2 bg-pink-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 font-arial">
+                      <Instagram className="w-3 h-3" /> Reel
+                    </div>
+                  )}
+                </div>
+              )
             )}
+
             <div className="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 rounded-xl px-2.5 py-1.5">
               <span className="text-xs text-slate-400 truncate max-w-[210px] font-mono">
                 {data.contenido}

@@ -104,6 +104,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawerFileInputRef = useRef<HTMLInputElement>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -275,16 +276,16 @@ export const TopBar: React.FC<TopBarProps> = ({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-b px-3 sm:px-4 py-2.5 flex flex-col gap-2 shrink-0 z-30 shadow-lg font-arial w-full overflow-hidden"
+            className="border-b px-3 sm:px-4 py-2.5 flex flex-col gap-2 shrink-0 z-30 shadow-lg font-arial w-full overflow-visible sm:overflow-hidden"
             style={{
               backgroundColor: 'var(--color-sec-30-surface, #022436)',
               borderColor: 'var(--color-sec-30-border, #0d4364)',
             }}
           >
             {/* Top Main Row */}
-            <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-3 w-full">
               {/* App Title & Brand */}
-              <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 sm:flex-initial">
                 {/* Mobile Hamburger Toggle */}
                 <button
                   onClick={() => setIsDrawerOpen(true)}
@@ -305,13 +306,14 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="min-w-0 overflow-hidden">
-                  <h1 className="text-xs sm:text-sm font-black text-slate-100 uppercase tracking-wider sm:tracking-widest leading-none font-vanguard truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none">
+                <div className="min-w-0 flex items-center">
+                  <h1 
+                    className="text-xs sm:text-sm font-black text-slate-100 uppercase tracking-wider sm:tracking-widest leading-none font-vanguard truncate max-w-[130px] xs:max-w-[170px] sm:max-w-none cursor-pointer"
+                    onClick={() => onOpenAspectsHub?.()}
+                    title="Segundo Cerebro: Organiza enlaces, reels, notas y conecta ramas de aprendizaje"
+                  >
                     Segundo Cerebro
                   </h1>
-                  <p className="text-[11px] text-slate-400 font-arial leading-tight mt-0.5 hidden lg:block">
-                    Organiza enlaces, reels, notas y conecta ramas de aprendizaje
-                  </p>
                 </div>
               </div>
 
@@ -352,7 +354,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               </div>
 
               {/* Desktop Action Controls */}
-              <div className="hidden md:flex items-center gap-1.5 shrink-0 flex-nowrap">
+              <div className="hidden md:flex items-center gap-1.5 shrink-0 overflow-x-auto no-scrollbar max-w-full">
                 {/* Quick Repaso Activo (Flashcards) */}
                 <button
                   onClick={onOpenReviewModal}
@@ -535,11 +537,11 @@ export const TopBar: React.FC<TopBarProps> = ({
               </div>
 
               {/* Mobile Action Controls (Clean, Compact, No-Overflow) */}
-              <div className="flex md:hidden items-center gap-1.5 shrink-0">
+              <div className="flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
                 {/* Toggle Search */}
                 <button
                   onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-                  className={`p-2 rounded-xl border text-xs transition-colors shrink-0 ${
+                  className={`p-1.5 sm:p-2 rounded-xl border text-xs transition-colors shrink-0 ${
                     isMobileSearchOpen || searchQuery
                       ? 'bg-sky-950 text-sky-300 border-sky-600'
                       : 'bg-slate-800/90 text-slate-300 border-slate-700'
@@ -552,7 +554,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {/* Toggle Filters Button */}
                 <button
                   onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                  className={`p-2 xs:px-2.5 xs:py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1 transition-colors shrink-0 ${
+                  className={`p-1.5 sm:p-2 rounded-xl border text-xs font-medium flex items-center gap-1 transition-colors shrink-0 ${
                     hasActiveFilters || isMobileFiltersOpen
                       ? 'bg-sky-950 text-sky-300 border-sky-600 font-semibold'
                       : 'bg-slate-800/90 text-slate-300 border-slate-700'
@@ -562,11 +564,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <SlidersHorizontal className="w-3.5 h-3.5" />
                   <span className="text-[11px] hidden xs:inline">Filtros</span>
                   {hasActiveFilters && (
-                    <span className="w-4 h-4 rounded-full bg-sky-500 text-slate-950 text-[10px] font-bold flex items-center justify-center ml-0.5">
+                    <span className="w-4 h-4 rounded-full bg-sky-500 text-slate-950 text-[10px] font-bold flex items-center justify-center">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
+
+                {/* Quick Aspects Hub button on Mobile */}
+                {onOpenAspectsHub && (
+                  <button
+                    onClick={onOpenAspectsHub}
+                    className="p-1.5 sm:p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors shrink-0"
+                    title="Centro de Aspectos (12 herramientas)"
+                  >
+                    <Compass className="w-4 h-4 text-sky-400" />
+                  </button>
+                )}
 
                 {/* Quick New Node Button */}
                 <button
@@ -580,15 +593,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
                   <span className="hidden xs:inline text-[11px]">Nuevo</span>
-                </button>
-
-                {/* Minimize Bar Toggle Mobile (Shown on sm+) */}
-                <button
-                  onClick={() => setIsBarCollapsed(true)}
-                  className="hidden sm:flex p-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 shrink-0"
-                  title="Minimizar barra"
-                >
-                  <ChevronUp className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -637,6 +641,69 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Mobile Quick Action Strip (Horizontally Scrollable, Touch-friendly, Zero Overflow) */}
+            <div className="flex md:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full touch-pan-x shrink-0">
+              <button
+                onClick={onOpenReviewModal}
+                className="px-2.5 py-1 rounded-xl bg-purple-950/70 hover:bg-purple-900/80 text-purple-200 border border-purple-800/80 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-purple-400" />
+                <span>Repaso</span>
+              </button>
+
+              <button
+                onClick={onOpenDriveModal}
+                className={`px-2.5 py-1 rounded-xl border text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm ${
+                  isDriveSyncing 
+                    ? 'bg-sky-950 text-sky-300 border-sky-600 animate-pulse' 
+                    : 'bg-slate-900/90 text-sky-300 border-slate-700/80'
+                }`}
+              >
+                <Cloud className="w-3.5 h-3.5 text-sky-400" />
+                <span>Drive</span>
+              </button>
+
+              <button
+                onClick={() => setIsMobileExportOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-emerald-900/60 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Descargar</span>
+              </button>
+
+              <button
+                onClick={onAutoLayout}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-sky-400" />
+                <span>Organizar</span>
+              </button>
+
+              <button
+                onClick={onOpenStats}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Métricas</span>
+              </button>
+
+              <button
+                onClick={onOpenPalette}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF4103] shrink-0" />
+                <span>60-30-10</span>
+              </button>
+
+              <button
+                onClick={onOpenManual}
+                className="px-2.5 py-1 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-orange-300 border border-orange-900/60 text-[11px] font-medium flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-orange-400" />
+                <span>Manual</span>
+              </button>
+            </div>
 
             {/* Category Carousel (Horizontal Smooth Touch Scroll) */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full shrink-0 touch-pan-x">
@@ -690,15 +757,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="flex md:hidden flex-col gap-2 pt-1 border-t border-slate-800/80 w-full overflow-hidden"
+                  className="flex md:hidden flex-col gap-2 pt-1.5 border-t border-slate-800/80 w-full"
                 >
-                  {/* Row 1: Mastery Status */}
-                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 w-full">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0 mr-1">Estado:</span>
-                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 shrink-0">
+                  {/* Mastery Status Section */}
+                  <div className="flex flex-col gap-1 w-full">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Estado de Aprendizaje:</span>
+                    <div className="flex flex-wrap items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 w-full">
                       <button
                         onClick={() => onSelectStatus('todos')}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
                           selectedStatus === 'todos' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400'
                         }`}
                       >
@@ -706,7 +773,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       </button>
                       <button
                         onClick={() => onSelectStatus('por_aprender')}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
                           selectedStatus === 'por_aprender' ? 'bg-rose-950 text-rose-300 font-semibold border border-rose-800' : 'text-slate-400'
                         }`}
                       >
@@ -715,7 +782,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       </button>
                       <button
                         onClick={() => onSelectStatus('en_practica')}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
                           selectedStatus === 'en_practica' ? 'bg-amber-950 text-amber-300 font-semibold border border-amber-800' : 'text-slate-400'
                         }`}
                       >
@@ -724,7 +791,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       </button>
                       <button
                         onClick={() => onSelectStatus('dominado')}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
                           selectedStatus === 'dominado' ? 'bg-emerald-950 text-emerald-300 font-semibold border border-emerald-800' : 'text-slate-400'
                         }`}
                       >
@@ -734,79 +801,86 @@ export const TopBar: React.FC<TopBarProps> = ({
                     </div>
                   </div>
 
-                  {/* Row 2: Formats & Dates */}
-                  <div className="flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full">
-                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 shrink-0">
-                      <button
-                        onClick={() => onSelectType('todos')}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
-                          selectedType === 'todos' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400'
-                        }`}
-                      >
-                        Formatos
-                      </button>
-                      <button
-                        onClick={() => onSelectType('enlace')}
-                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                          selectedType === 'enlace' ? 'bg-slate-800 text-pink-300' : 'text-slate-400'
-                        }`}
-                      >
-                        <Instagram className="w-3 h-3 text-pink-400" />
-                        <span>Reels</span>
-                      </button>
-                      <button
-                        onClick={() => onSelectType('nota')}
-                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                          selectedType === 'nota' ? 'bg-slate-800 text-emerald-300' : 'text-slate-400'
-                        }`}
-                      >
-                        <FileText className="w-3 h-3 text-emerald-400" />
-                        <span>Notas</span>
-                      </button>
-                      <button
-                        onClick={() => onSelectType('imagen')}
-                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                          selectedType === 'imagen' ? 'bg-slate-800 text-amber-300' : 'text-slate-400'
-                        }`}
-                      >
-                        <ImageIcon className="w-3 h-3 text-amber-400" />
-                        <span>Imágenes</span>
-                      </button>
-                    </div>
+                  {/* Formats & Dates Section */}
+                  <div className="flex flex-col gap-1 w-full">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Formato y Filtro Temporal:</span>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 w-full">
+                      {/* Format buttons */}
+                      <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 shrink-0">
+                        <button
+                          onClick={() => onSelectType('todos')}
+                          className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
+                            selectedType === 'todos' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400'
+                          }`}
+                        >
+                          Formatos
+                        </button>
+                        <button
+                          onClick={() => onSelectType('enlace')}
+                          className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                            selectedType === 'enlace' ? 'bg-slate-800 text-pink-300' : 'text-slate-400'
+                          }`}
+                        >
+                          <Instagram className="w-3 h-3 text-pink-400" />
+                          <span>Reels/Web</span>
+                        </button>
+                        <button
+                          onClick={() => onSelectType('nota')}
+                          className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                            selectedType === 'nota' ? 'bg-slate-800 text-emerald-300' : 'text-slate-400'
+                          }`}
+                        >
+                          <FileText className="w-3 h-3 text-emerald-400" />
+                          <span>Notas</span>
+                        </button>
+                        <button
+                          onClick={() => onSelectType('imagen')}
+                          className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                            selectedType === 'imagen' ? 'bg-slate-800 text-amber-300' : 'text-slate-400'
+                          }`}
+                        >
+                          <ImageIcon className="w-3 h-3 text-amber-400" />
+                          <span>Imágenes</span>
+                        </button>
+                      </div>
 
-                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 px-1.5 rounded-xl border border-slate-800 shrink-0">
-                      <Calendar className="w-3 h-3 text-sky-400" />
-                      <select
-                        value={selectedDate}
-                        onChange={(e) => onSelectDate(e.target.value as DateFilterType)}
-                        className="bg-slate-900 text-slate-200 text-[11px] font-medium rounded-lg px-1.5 py-0.5 border border-slate-700/80 focus:outline-none"
-                      >
-                        <option value="todas">Todas</option>
-                        <option value="hoy">Hoy</option>
-                        <option value="7dias">7 días</option>
-                        <option value="30dias">30 días</option>
-                        <option value="esteMes">Este mes</option>
-                      </select>
-                      <button
-                        onClick={() => onSelectDateSort(selectedDateSort === 'recientes' ? 'antiguos' : 'recientes')}
-                        className={`p-1 rounded-lg text-[11px] border border-slate-800 ${
-                          selectedDateSort === 'recientes' ? 'bg-slate-800 text-sky-300' : 'text-slate-400'
-                        }`}
-                        title="Ordenar por fecha"
-                      >
-                        <ArrowUpDown className="w-3 h-3" />
-                      </button>
-                    </div>
+                      {/* Date Filter & Clear */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 px-1.5 rounded-xl border border-slate-800">
+                          <Calendar className="w-3 h-3 text-sky-400" />
+                          <select
+                            value={selectedDate}
+                            onChange={(e) => onSelectDate(e.target.value as DateFilterType)}
+                            className="bg-slate-900 text-slate-200 text-[11px] font-medium rounded-lg px-1.5 py-0.5 border border-slate-700/80 focus:outline-none"
+                          >
+                            <option value="todas">Todas</option>
+                            <option value="hoy">Hoy</option>
+                            <option value="7dias">7 días</option>
+                            <option value="30dias">30 días</option>
+                            <option value="esteMes">Este mes</option>
+                          </select>
+                          <button
+                            onClick={() => onSelectDateSort(selectedDateSort === 'recientes' ? 'antiguos' : 'recientes')}
+                            className={`p-1 rounded-lg text-[11px] border border-slate-800 ${
+                              selectedDateSort === 'recientes' ? 'bg-slate-800 text-sky-300' : 'text-slate-400'
+                            }`}
+                            title="Ordenar por fecha"
+                          >
+                            <ArrowUpDown className="w-3 h-3" />
+                          </button>
+                        </div>
 
-                    {hasActiveFilters && (
-                      <button
-                        onClick={clearAllFilters}
-                        className="px-2 py-1 rounded-xl text-[10px] font-medium bg-red-950/60 text-red-300 border border-red-800/60 flex items-center gap-1 shrink-0"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>Limpiar</span>
-                      </button>
-                    )}
+                        {hasActiveFilters && (
+                          <button
+                            onClick={clearAllFilters}
+                            className="px-2 py-1 rounded-xl text-[10px] font-semibold bg-red-950/80 text-red-300 border border-red-800/80 flex items-center gap-1 active:scale-95"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Limpiar</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -999,10 +1073,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-white font-vanguard uppercase tracking-wider">
-                      Menú del Segundo Cerebro
+                      Segundo Cerebro
                     </h2>
-                    <p className="text-[11px] text-slate-400">
-                      Navegación dinámica y herramientas del sistema
+                    <p className="text-[11px] text-slate-300 font-arial leading-tight mt-0.5">
+                      Organiza enlaces, reels, notas y conecta ramas de aprendizaje
                     </p>
                   </div>
                 </div>
@@ -1309,6 +1383,91 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <div className="text-[10px] text-slate-500 font-mono">
                   {filteredCount}/{totalNodes} nodos
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Download Sheet Modal */}
+      <AnimatePresence>
+        {isMobileExportOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileExportOpen(false)}
+              className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              className="relative w-full max-w-sm rounded-t-2xl sm:rounded-2xl border p-4 shadow-2xl z-10 space-y-3"
+              style={{
+                backgroundColor: 'var(--color-sec-30-surface, #022436)',
+                borderColor: 'var(--color-sec-30-border, #0d4364)',
+              }}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <FileDown className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-white font-vanguard uppercase">
+                    Descargar y Exportar
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsMobileExportOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    onExportDocument?.('md');
+                    setIsMobileExportOpen(false);
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-left flex items-center gap-3 transition-colors active:scale-95"
+                >
+                  <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">Notas en Markdown (.md)</div>
+                    <div className="text-[10px] text-slate-400">Documento estructurado de todos los nodos</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onExportDocument?.('html');
+                    setIsMobileExportOpen(false);
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-left flex items-center gap-3 transition-colors active:scale-95"
+                >
+                  <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">Dossier Web Imprimible (.html)</div>
+                    <div className="text-[10px] text-slate-400">Guía visual formateada con estilos y enlaces</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onExportJSON();
+                    setIsMobileExportOpen(false);
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-left flex items-center gap-3 transition-colors active:scale-95"
+                >
+                  <Download className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">Copia de Seguridad (.json)</div>
+                    <div className="text-[10px] text-slate-400">Respaldo total de nodos, relaciones y categorías</div>
+                  </div>
+                </button>
               </div>
             </motion.div>
           </div>

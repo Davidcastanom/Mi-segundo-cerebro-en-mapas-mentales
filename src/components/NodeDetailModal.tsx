@@ -8,7 +8,10 @@ import {
   generarDocumentoMarkdown,
   generarDocumentoHTML,
   descargarArchivo,
-  ConnectedNodeInfo
+  ConnectedNodeInfo,
+  extraerYouTubeId,
+  extraerYouTubeTimestamp,
+  obtenerYouTubeEmbedUrl
 } from '../utils/textUtils';
 import { 
   X, 
@@ -36,7 +39,8 @@ import {
   Printer,
   CheckSquare,
   Square,
-  Plus
+  Plus,
+  Maximize2
 } from 'lucide-react';
 
 interface NodeDetailModalProps {
@@ -53,6 +57,7 @@ interface NodeDetailModalProps {
   onFilterByCategory: (categoryId: string) => void;
   onFilterByTag: (tag: string) => void;
   onToggleChecklist?: (nodeId: string, itemId: string) => void;
+  onPlayFloatingVideo?: (videoId: string, title: string, nodeId?: string, timestamp?: number | null) => void;
 }
 
 export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
@@ -69,11 +74,16 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
   onFilterByCategory,
   onFilterByTag,
   onToggleChecklist,
+  onPlayFloatingVideo,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [videoLinkCopied, setVideoLinkCopied] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
   if (!isOpen || !node) return null;
+
+  const youtubeVideoId = extraerYouTubeId(node.contenido) || extraerYouTubeId(node.urlOriginal);
+  const isYouTube = Boolean(youtubeVideoId);
 
   const categoryColor = category?.color || '#38bdf8';
   const effectiveReason = obtenerRazonEfectiva(node);
@@ -316,29 +326,112 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
 
             {node.tipo === 'enlace' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between bg-slate-950 rounded-xl px-3 py-2 border border-slate-800">
-                  <span className="text-xs text-slate-400 truncate max-w-[450px] font-mono">
-                    {node.contenido}
-                  </span>
-                  <a
-                    href={node.contenido}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-medium px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 transition-colors ml-2 shrink-0"
-                  >
-                    Abrir <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
+                {isYouTube && youtubeVideoId ? (
+                  /* Reproductor Completo de YouTube para Ficha de Estudio */
+                  <div className="space-y-3">
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-slate-700/80 shadow-2xl group">
+                      <iframe
+                        src={obtenerYouTubeEmbedUrl(
+                          youtubeVideoId,
+                          extraerYouTubeTimestamp(node.contenido),
+                          false
+                        )}
+                        title={node.titulo}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    </div>
 
-                {node.imagenUrl && (
-                  <div className="rounded-xl overflow-hidden bg-slate-950 border border-slate-800 max-h-64 flex items-center justify-center">
-                    <img
-                      src={node.imagenUrl}
-                      alt={node.titulo}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover max-h-64"
-                    />
+                    {/* Barra de Controles y Acciones Rápidas */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 rounded-lg bg-red-950/80 border border-red-800/80 text-red-300 font-bold text-xs flex items-center gap-1.5">
+                          <Youtube className="w-3.5 h-3.5 fill-current" />
+                          <span>Video Incrustado</span>
+                        </span>
+
+                        {onPlayFloatingVideo && (
+                          <button
+                            onClick={() => {
+                              onPlayFloatingVideo(
+                                youtubeVideoId,
+                                node.titulo,
+                                node.id,
+                                extraerYouTubeTimestamp(node.contenido)
+                              );
+                              onClose();
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-200 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
+                            title="Pasar a reproductor flotante en la esquina para explorar el mapa mental mientras escuchas"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
+                            <span>Pasar a Flotante (PiP)</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(node.contenido);
+                            setVideoLinkCopied(true);
+                            setTimeout(() => setVideoLinkCopied(false), 2000);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1 transition-colors border border-slate-700/60"
+                        >
+                          {videoLinkCopied ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-300">¡Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copiar URL</span>
+                            </>
+                          )}
+                        </button>
+
+                        <a
+                          href={node.contenido}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 text-xs font-medium inline-flex items-center gap-1 transition-colors border border-slate-700/60"
+                        >
+                          <span>Abrir en YouTube</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between bg-slate-950 rounded-xl px-3 py-2 border border-slate-800">
+                      <span className="text-xs text-slate-400 truncate max-w-[450px] font-mono">
+                        {node.contenido}
+                      </span>
+                      <a
+                        href={node.contenido}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-medium px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 transition-colors ml-2 shrink-0"
+                      >
+                        Abrir <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    {node.imagenUrl && (
+                      <div className="rounded-xl overflow-hidden bg-slate-950 border border-slate-800 max-h-64 flex items-center justify-center">
+                        <img
+                          src={node.imagenUrl}
+                          alt={node.titulo}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover max-h-64"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

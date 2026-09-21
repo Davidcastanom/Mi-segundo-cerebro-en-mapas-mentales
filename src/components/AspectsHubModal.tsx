@@ -97,10 +97,10 @@ export const AspectsHubModal: React.FC<AspectsHubModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white font-vanguard tracking-wide uppercase">
-                Centro de Aspectos y Funciones
+                Segundo Cerebro • Centro de Aspectos
               </h2>
               <p className="text-xs text-slate-300">
-                Acceso centralizado a todos los módulos y herramientas de tu Segundo Cerebro ({totalNodes} recursos)
+                Organiza enlaces, reels, notas y conecta ramas de aprendizaje ({totalNodes} recursos)
               </p>
             </div>
           </div>

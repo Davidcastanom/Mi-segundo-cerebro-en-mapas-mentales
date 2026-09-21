@@ -43,11 +43,12 @@ export function generarRazonAutomatica(contenido: string, maxPalabras: number = 
 /**
  * Obtener la razón efectiva según la configuración (manual o automática)
  */
-export function obtenerRazonEfectiva(node: BrainNodeData): string {
+export function obtenerRazonEfectiva(node?: Partial<BrainNodeData> | null): string {
+  if (!node) return 'Recurso guardado en mi bitácora de aprendizaje.';
   if (node.razonModo === 'manual' && node.razonManual && node.razonManual.trim().length > 0) {
     return node.razonManual.trim();
   }
-  return generarRazonAutomatica(node.contenido);
+  return generarRazonAutomatica(node.contenido || '');
 }
 
 /**
@@ -71,6 +72,83 @@ export function formatearDescripcionNotion(razon: string): string {
 }
 
 /**
+ * Extraer ID de video de YouTube desde cualquier formato de URL conocido
+ * (watch?v=, youtu.be/, shorts/, embed/, live/, mobile, etc.)
+ */
+export function extraerYouTubeId(urlOrText?: string): string | null {
+  if (!urlOrText) return null;
+  const str = urlOrText.trim();
+  
+  // 1. URLs directas con parámetro v (watch?v=...)
+  const vParamMatch = str.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+  if (vParamMatch) return vParamMatch[1];
+
+  // 2. URLs con rutas tipo youtu.be/, shorts/, embed/, live/ o v/
+  const pathMatch = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/))([a-zA-Z0-9_-]{11})/i);
+  if (pathMatch) return pathMatch[1];
+
+  // 3. Fallback genérico para cualquier URL de YouTube que contenga un ID de 11 caracteres
+  const genericMatch = str.match(/(?:youtube\.com|youtu\.be).*[?&/]([a-zA-Z0-9_-]{11})(?:[?&#\s]|$)/i);
+  if (genericMatch) return genericMatch[1];
+
+  return null;
+}
+
+/**
+ * Extraer timestamp en segundos (p.ej. ?t=120 o ?t=1m30s)
+ */
+export function extraerYouTubeTimestamp(url?: string): number | null {
+  if (!url) return null;
+  const match = url.match(/[?&](?:t|start)=([0-9mhseconds]+)/i);
+  if (!match) return null;
+  const raw = match[1];
+  if (/^\d+$/.test(raw)) {
+    return parseInt(raw, 10);
+  }
+  let totalSec = 0;
+  const hours = raw.match(/(\d+)h/i);
+  const minutes = raw.match(/(\d+)m/i);
+  const seconds = raw.match(/(\d+)s/i);
+  if (hours) totalSec += parseInt(hours[1], 10) * 3600;
+  if (minutes) totalSec += parseInt(minutes[1], 10) * 60;
+  if (seconds) totalSec += parseInt(seconds[1], 10);
+  return totalSec > 0 ? totalSec : null;
+}
+
+/**
+ * Obtener URL de miniatura oficial de YouTube en alta definición
+ */
+export function obtenerYouTubeThumbnail(
+  videoId: string,
+  calidad: 'hq' | 'maxres' | 'mq' = 'hq'
+): string {
+  if (calidad === 'maxres') {
+    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  }
+  if (calidad === 'mq') {
+    return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+  }
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+/**
+ * Obtener URL segura para incrustar el reproductor iframe de YouTube sin cookies invasivas
+ */
+export function obtenerYouTubeEmbedUrl(
+  videoId: string,
+  timestamp?: number | null,
+  autoplay: boolean = false
+): string {
+  const params = new URLSearchParams();
+  params.set('rel', '0');
+  params.set('modestbranding', '1');
+  params.set('enablejsapi', '1');
+  if (autoplay) params.set('autoplay', '1');
+  if (timestamp && timestamp > 0) params.set('start', timestamp.toString());
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+}
+
+/**
  * Detectar tipo de plataforma desde URL
  */
 export function detectarPlataforma(url: string): 'instagram' | 'youtube' | 'web' | 'otro' {
@@ -79,7 +157,7 @@ export function detectarPlataforma(url: string): 'instagram' | 'youtube' | 'web'
   if (u.includes('instagram.com/reel') || u.includes('instagram.com/p/') || u.includes('instagr.am')) {
     return 'instagram';
   }
-  if (u.includes('youtube.com') || u.includes('youtu.be')) {
+  if (u.includes('youtube.com') || u.includes('youtu.be') || extraerYouTubeId(url)) {
     return 'youtube';
   }
   if (u.startsWith('http://') || u.startsWith('https://')) {

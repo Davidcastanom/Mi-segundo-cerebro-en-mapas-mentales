@@ -41,6 +41,18 @@ self.addEventListener('fetch', (event) => {
   // Skip cross-origin or chrome-extension requests
   if (!event.request.url.startsWith(self.location.origin)) return;
 
+  // Never intercept Vite dev server, HMR, or module requests
+  if (
+    event.request.url.includes('/@vite/') ||
+    event.request.url.includes('/@fs/') ||
+    event.request.url.includes('/src/') ||
+    event.request.url.includes('/node_modules/') ||
+    event.request.url.includes('?import') ||
+    event.request.url.includes('?t=')
+  ) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {

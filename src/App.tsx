@@ -49,6 +49,7 @@ import { StudyReviewModal } from './components/StudyReviewModal';
 import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
 import { AspectsHubModal } from './components/AspectsHubModal';
 import { DownloadFeedbackModal, DownloadModalData } from './components/DownloadFeedbackModal';
+import { FloatingVideoPlayer, FloatingVideoData } from './components/FloatingVideoPlayer';
 import { 
   Palette60_30_10, 
   obtenerPaletaGuardada, 
@@ -62,7 +63,9 @@ import {
   generarDossierCompletoMarkdown,
   generarDossierCompletoHTML,
   descargarArchivo,
-  detectarPlataforma
+  detectarPlataforma,
+  extraerYouTubeId,
+  obtenerYouTubeThumbnail
 } from './utils/textUtils';
 import { DriveBackupPayload } from './services/driveService';
 
@@ -74,13 +77,17 @@ const nodeTypes = {
 
 export default function App() {
   const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_categories`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error loading categories:', e);
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_categories`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((c) => c && typeof c === 'object' && c.id && c.nombre);
+          if (valid.length > 0) return valid;
+        }
       }
+    } catch (e) {
+      console.error('Error loading categories:', e);
     }
     return INITIAL_CATEGORIES;
   });
@@ -145,23 +152,36 @@ export default function App() {
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(new Set());
+  const [floatingVideo, setFloatingVideo] = useState<FloatingVideoData | null>(null);
 
   const reactFlowInstance = useRef<any>(null);
 
-  // Initial nodes setup for React Flow
+  // Initial nodes setup for React Flow with defensive parsing
   const initialReactFlowNodes: Node[] = useMemo(() => {
-    const savedNodes = localStorage.getItem(`${STORAGE_KEY}_nodes`);
-    let rawNodes: CanvasNodeItem[] = INITIAL_NODES;
-
-    if (savedNodes) {
-      try {
-        rawNodes = JSON.parse(savedNodes);
-      } catch (e) {
-        console.error('Error loading saved nodes:', e);
+    try {
+      const savedNodes = localStorage.getItem(`${STORAGE_KEY}_nodes`);
+      if (savedNodes) {
+        const parsed = JSON.parse(savedNodes);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed
+            .filter((n) => n && typeof n === 'object' && n.id && n.position)
+            .map((n) => ({
+              id: String(n.id),
+              type: 'brainNode',
+              position: {
+                x: typeof n.position?.x === 'number' ? n.position.x : 100,
+                y: typeof n.position?.y === 'number' ? n.position.y : 100,
+              },
+              data: (n.data && typeof n.data === 'object' ? n.data : {}) as unknown as Record<string, unknown>,
+            }));
+          if (valid.length > 0) return valid;
+        }
       }
+    } catch (e) {
+      console.error('Error loading saved nodes:', e);
     }
 
-    return rawNodes.map((n) => ({
+    return INITIAL_NODES.map((n) => ({
       id: n.id,
       type: 'brainNode',
       position: n.position,
@@ -169,20 +189,42 @@ export default function App() {
     }));
   }, []);
 
-  // Initial edges setup for React Flow
+  // Initial edges setup for React Flow with defensive parsing
   const initialReactFlowEdges: Edge[] = useMemo(() => {
-    const savedEdges = localStorage.getItem(`${STORAGE_KEY}_edges`);
-    let rawEdges: BrainEdgeData[] = INITIAL_EDGES;
-
-    if (savedEdges) {
-      try {
-        rawEdges = JSON.parse(savedEdges);
-      } catch (e) {
-        console.error('Error loading saved edges:', e);
+    try {
+      const savedEdges = localStorage.getItem(`${STORAGE_KEY}_edges`);
+      if (savedEdges) {
+        const parsed = JSON.parse(savedEdges);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((e) => e && typeof e === 'object' && e.id && e.source && e.target)
+            .map((e) => ({
+              id: String(e.id),
+              source: String(e.source),
+              target: String(e.target),
+              sourceHandle: e.sourceHandle || 'bottom',
+              targetHandle: e.targetHandle || 'top',
+              label: typeof e.etiqueta === 'string' ? e.etiqueta : (typeof e.label === 'string' ? e.label : ''),
+              animated: true,
+              reconnectable: true,
+              style: { stroke: '#38bdf8', strokeWidth: 2.5 },
+              labelStyle: { fill: '#94a3b8', fontSize: 11, fontWeight: 500 },
+              labelBgStyle: { fill: '#0f172a', fillOpacity: 0.95, stroke: '#334155', strokeWidth: 1, rx: 6, ry: 6 },
+              labelBgPadding: [6, 4] as [number, number],
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#38bdf8',
+                width: 14,
+                height: 14,
+              },
+            }));
+        }
       }
+    } catch (e) {
+      console.error('Error loading saved edges:', e);
     }
 
-    return rawEdges.map((e) => ({
+    return INITIAL_EDGES.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -380,13 +422,14 @@ export default function App() {
       if (!pastedText) return;
 
       const isUrl = pastedText.startsWith('http://') || pastedText.startsWith('https://');
-      const platform = isUrl ? detectarPlataforma(pastedText) : undefined;
+      const ytId = isUrl ? extraerYouTubeId(pastedText) : null;
+      const platform = isUrl ? (ytId ? 'youtube' : detectarPlataforma(pastedText)) : undefined;
       const newId = `node-${Date.now()}`;
 
       let newTitle = 'Captura Rápida (Pegado)';
       if (isUrl) {
-        if (platform === 'instagram') newTitle = 'Reel / Publicación de Instagram';
-        else if (platform === 'youtube') newTitle = 'Video de YouTube';
+        if (platform === 'youtube' || ytId) newTitle = 'Video de YouTube';
+        else if (platform === 'instagram') newTitle = 'Reel / Publicación de Instagram';
         else newTitle = 'Recurso Web Guardado';
       } else {
         newTitle = pastedText.slice(0, 45) + (pastedText.length > 45 ? '...' : '');
@@ -406,11 +449,12 @@ export default function App() {
           contenido: pastedText,
           categoriaId: categories[0]?.id || 'ingles',
           estado: 'por_aprender',
-          etiquetas: ['captura-rapida'],
+          etiquetas: ytId ? ['captura-rapida', 'youtube'] : ['captura-rapida'],
           fechaCreacion: new Date().toISOString().split('T')[0],
           razonModo: 'automatico',
           razonManual: '',
           plataforma: platform,
+          imagenUrl: ytId ? obtenerYouTubeThumbnail(ytId, 'hq') : undefined,
         },
       };
 
@@ -459,8 +503,32 @@ export default function App() {
     setIsDetailModalOpen(true);
   }, []);
 
+  const handlePlayFloatingVideo = useCallback((
+    videoId: string,
+    title: string,
+    nodeId?: string,
+    timestamp?: number | null
+  ) => {
+    setFloatingVideo({
+      videoId,
+      title,
+      nodeId,
+      timestamp,
+    });
+  }, []);
+
   const handleSaveNode = useCallback(
     (nodeData: Partial<BrainNodeData>) => {
+      // Detección automática de videos de YouTube si hay enlace presente
+      const contentStr = nodeData.contenido || '';
+      const ytId = contentStr ? extraerYouTubeId(contentStr) : null;
+      if (ytId) {
+        nodeData.plataforma = 'youtube';
+        if (!nodeData.imagenUrl) {
+          nodeData.imagenUrl = obtenerYouTubeThumbnail(ytId, 'hq');
+        }
+      }
+
       // 1. Limpiar o ajustar filtros para garantizar que el nuevo nodo sea inmediatamente visible
       if (selectedCategory && nodeData.categoriaId && selectedCategory !== nodeData.categoriaId) {
         setSelectedCategory(null);
@@ -749,14 +817,14 @@ export default function App() {
     const q = searchQuery.toLowerCase().trim();
 
     return nodes
-      .filter((n) => !hiddenNodeIds.has(n.id))
+      .filter((n) => n && n.id && n.data && !hiddenNodeIds.has(n.id))
       .map((node) => {
-        const data = node.data as unknown as BrainNodeData;
+        const data = (node.data || {}) as unknown as BrainNodeData;
         const cat = categoryMap.get(data.categoriaId);
-        const reason = obtenerRazonEfectiva(data).toLowerCase();
+        const reason = (obtenerRazonEfectiva(data) || '').toLowerCase();
         const title = (data.titulo || '').toLowerCase();
         const content = (data.contenido || '').toLowerCase();
-        const tags = (data.etiquetas || []).map((t) => t.toLowerCase());
+        const tags = (Array.isArray(data.etiquetas) ? data.etiquetas : []).map((t) => (t || '').toLowerCase());
 
         const matchesCategory = !selectedCategory || data.categoriaId === selectedCategory;
         const matchesType = selectedType === 'todos' || data.tipo === selectedType;
@@ -805,6 +873,7 @@ export default function App() {
             onViewDetail: handleOpenDetailNode,
             onUpdateStatus: handleUpdateStatus,
             onToggleChecklist: handleToggleChecklist,
+            onPlayFloatingVideo: handlePlayFloatingVideo,
           },
         };
       });
@@ -826,18 +895,20 @@ export default function App() {
     handleOpenDetailNode,
     handleUpdateStatus,
     handleToggleChecklist,
+    handlePlayFloatingVideo,
   ]);
 
   // Count of items matching all active filters
   const filteredCount = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return nodes.filter((node) => {
+      if (!node || !node.data) return false;
       const data = node.data as unknown as BrainNodeData;
       const cat = categoryMap.get(data.categoriaId);
-      const reason = obtenerRazonEfectiva(data).toLowerCase();
+      const reason = (obtenerRazonEfectiva(data) || '').toLowerCase();
       const title = (data.titulo || '').toLowerCase();
       const content = (data.contenido || '').toLowerCase();
-      const tags = (data.etiquetas || []).map((t) => t.toLowerCase());
+      const tags = (Array.isArray(data.etiquetas) ? data.etiquetas : []).map((t) => (t || '').toLowerCase());
 
       const matchesCategory = !selectedCategory || data.categoriaId === selectedCategory;
       const matchesType = selectedType === 'todos' || data.tipo === selectedType;
@@ -1163,7 +1234,7 @@ export default function App() {
 
   return (
     <div 
-      className="flex flex-col h-screen w-screen text-slate-100 overflow-hidden font-arial select-none"
+      className="flex flex-col h-screen w-full max-w-full overflow-hidden font-arial select-none"
       style={{ backgroundColor: palette.dominant60.base }}
     >
       {/* Top Application Bar */}
@@ -1204,7 +1275,7 @@ export default function App() {
 
       {/* Main React Flow Canvas Area (60% Dominant Base) */}
       <main 
-        className="flex-1 relative w-full h-full"
+        className="flex-1 min-h-0 relative w-full h-full"
         style={{ backgroundColor: palette.dominant60.base }}
       >
         {/* Quick Paste Notification Toast */}
@@ -1243,7 +1314,7 @@ export default function App() {
             size={1.5}
             color={palette.dominant60.dots}
           />
-          <Controls className="!bg-slate-900 !border-slate-800" />
+          <Controls position="bottom-right" className="!bg-slate-900 !border-slate-800" />
           <MiniMap
             nodeColor={(n) => {
               const d = n.data as unknown as BrainNodeData;
@@ -1372,6 +1443,7 @@ export default function App() {
         onFilterByCategory={(catId) => setSelectedCategory(catId)}
         onFilterByTag={(tag) => setSearchQuery(tag)}
         onToggleChecklist={handleToggleChecklist}
+        onPlayFloatingVideo={handlePlayFloatingVideo}
       />
 
       <PaletteModal
@@ -1451,6 +1523,19 @@ export default function App() {
       <DownloadFeedbackModal
         data={downloadFeedback}
         onClose={() => setDownloadFeedback((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Global In-App Floating Video Player (Picture-in-Picture) */}
+      <FloatingVideoPlayer
+        video={floatingVideo}
+        onClose={() => setFloatingVideo(null)}
+        onFocusNode={handleFocusNode}
+        onOpenDetail={(nodeId) => {
+          const found = nodes.find((n) => n.id === nodeId);
+          if (found) {
+            handleOpenDetailNode(found.data as unknown as BrainNodeData);
+          }
+        }}
       />
 
       <input

@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrainNodeData, Category, NodeType, NodeStatus, ChecklistItem } from '../types';
-import { generarRazonAutomatica, detectarPlataforma } from '../utils/textUtils';
+import { 
+  generarRazonAutomatica, 
+  detectarPlataforma,
+  extraerYouTubeId,
+  extraerYouTubeTimestamp,
+  obtenerYouTubeThumbnail,
+  obtenerYouTubeEmbedUrl
+} from '../utils/textUtils';
 import { 
   X, 
   Sparkles, 
@@ -14,7 +21,11 @@ import {
   Trash2,
   Award,
   Zap,
-  HelpCircle
+  HelpCircle,
+  Youtube,
+  Play,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface NodeEditorModalProps {
@@ -44,6 +55,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [imagenUrl, setImagenUrl] = useState('');
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
   
   // Razón / Motivo (Requisito 10 & 11)
   const [razonModo, setRazonModo] = useState<'manual' | 'automatico'>('manual');
@@ -53,6 +65,14 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#06b6d4');
+
+  const detectedYouTubeId = extraerYouTubeId(contenido);
+
+  useEffect(() => {
+    if (detectedYouTubeId && !imagenUrl) {
+      setImagenUrl(obtenerYouTubeThumbnail(detectedYouTubeId, 'hq'));
+    }
+  }, [detectedYouTubeId, imagenUrl]);
 
   useEffect(() => {
     if (initialData) {
@@ -147,7 +167,11 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
     e.preventDefault();
     if (!titulo.trim()) return;
 
-    const detectedPlatform = tipo === 'enlace' ? detectarPlataforma(contenido) : undefined;
+    const detectedPlatform = tipo === 'enlace' 
+      ? (detectedYouTubeId ? 'youtube' : detectarPlataforma(contenido)) 
+      : undefined;
+
+    const finalThumbnail = imagenUrl.trim() || (detectedYouTubeId ? obtenerYouTubeThumbnail(detectedYouTubeId, 'hq') : undefined);
 
     onSave({
       ...(initialData || {}),
@@ -158,7 +182,7 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
       estado,
       checklist,
       etiquetas,
-      imagenUrl: imagenUrl.trim() || undefined,
+      imagenUrl: finalThumbnail,
       plataforma: detectedPlatform,
       razonModo,
       razonManual: razonManual.trim(),
@@ -417,6 +441,61 @@ export const NodeEditorModal: React.FC<NodeEditorModalProps> = ({
                 onChange={(e) => setContenido(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 font-mono"
               />
+            )}
+
+            {/* Detección y Previsualización en Vivo de Video de YouTube */}
+            {tipo === 'enlace' && detectedYouTubeId && (
+              <div className="p-3 bg-red-950/30 border border-red-900/60 rounded-xl space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-1.5 rounded-lg bg-red-600 text-white shrink-0 shadow">
+                      <Youtube className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-red-200 block truncate">
+                        Video de YouTube Detectado
+                      </span>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        Se reproducirá de forma nativa e inmersiva dentro de la aplicación
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowVideoPreview(!showVideoPreview)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 text-[11px] font-medium flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                  >
+                    {showVideoPreview ? (
+                      <>
+                        <EyeOff className="w-3 h-3 text-amber-400" />
+                        <span>Ocultar reproductor</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3 h-3 fill-red-400 text-red-400" />
+                        <span>Probar reproducción</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {showVideoPreview && (
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-red-900/80 shadow-2xl animate-in zoom-in-95 duration-150">
+                    <iframe
+                      src={obtenerYouTubeEmbedUrl(
+                        detectedYouTubeId,
+                        extraerYouTubeTimestamp(contenido),
+                        false
+                      )}
+                      title="Vista previa del video"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
