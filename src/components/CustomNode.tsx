@@ -18,7 +18,9 @@ import {
   Calendar,
   Eye,
   CheckSquare,
-  Square
+  Square,
+  Tag,
+  Plus
 } from 'lucide-react';
 
 export type BrainCanvasNodeData = BrainNodeData & {
@@ -325,18 +327,46 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
           </p>
         </div>
 
-        {/* Checklist Steps Preview if available */}
-        {checklistItems.length > 0 && (
-          <div className="p-2 rounded-xl bg-slate-950/50 border border-slate-800/80 space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-              <span className="flex items-center gap-1">
-                <CheckSquare className="w-3 h-3 text-emerald-400" /> Pasos Accionables
-              </span>
-              <span className="font-mono text-[10px] text-slate-400">
-                {completedChecklistCount}/{checklistItems.length}
-              </span>
+        {/* Checklist de Pasos Accionables (Siempre visible e interactivo en todos los módulos) */}
+        <div className="rounded-xl bg-slate-950/70 border border-slate-800/80 p-2.5 space-y-2 text-xs">
+          <div className="flex items-center justify-between text-[11px]">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-300">
+              <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Pasos Accionables</span>
+              <span className="text-[10px] text-slate-500 font-normal">(Checklist)</span>
             </div>
-            <div className="space-y-1 max-h-24 overflow-y-auto">
+            {checklistItems.length > 0 ? (
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
+                {completedChecklistCount}/{checklistItems.length} ({checklistItems.length > 0 ? Math.round((completedChecklistCount / checklistItems.length) * 100) : 0}%)
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic bg-slate-900/80 px-1.5 py-0.5 rounded border border-slate-800/60">
+                Opcional
+              </span>
+            )}
+          </div>
+
+          {/* Barra de progreso de avance del checklist */}
+          {checklistItems.length > 0 && (
+            <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800/80">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  completedChecklistCount === checklistItems.length
+                    ? 'bg-emerald-400'
+                    : completedChecklistCount > 0
+                    ? 'bg-sky-400'
+                    : 'bg-slate-700'
+                }`}
+                style={{
+                  width: `${checklistItems.length > 0 ? Math.round((completedChecklistCount / checklistItems.length) * 100) : 0}%`,
+                }}
+              />
+            </div>
+          )}
+
+          {/* Lista de pasos interactiva o botón para definir pasos si no hay ninguno */}
+          {checklistItems.length > 0 ? (
+            <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
               {checklistItems.map((item) => (
                 <div
                   key={item.id}
@@ -344,32 +374,72 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
                     e.stopPropagation();
                     data.onToggleChecklist?.(data.id, item.id);
                   }}
-                  className="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer py-0.5 group/item"
+                  className="flex items-start gap-2 p-1.5 rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-slate-800/60 text-slate-300 hover:text-white cursor-pointer transition-colors group/item"
+                  title={item.completado ? 'Paso completado (clic para desmarcar)' : 'Clic para marcar paso completado'}
                 >
-                  {item.completado ? (
-                    <CheckSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <Square className="w-3.5 h-3.5 text-slate-500 group-hover/item:text-slate-300 shrink-0" />
-                  )}
-                  <span className={`text-[11px] truncate ${item.completado ? 'line-through text-slate-500' : ''}`}>
+                  <button
+                    type="button"
+                    className="shrink-0 mt-0.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onToggleChecklist?.(data.id, item.id);
+                    }}
+                  >
+                    {item.completado ? (
+                      <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Square className="w-3.5 h-3.5 text-slate-500 group-hover/item:text-slate-300" />
+                    )}
+                  </button>
+                  <span
+                    className={`text-[11px] leading-snug break-words flex-1 ${
+                      item.completado ? 'line-through text-slate-500' : 'text-slate-200'
+                    }`}
+                  >
                     {item.texto}
                   </span>
                 </div>
               ))}
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onEdit?.(data);
+              }}
+              className="w-full py-1.5 px-2 rounded-lg border border-dashed border-slate-700/80 hover:border-emerald-500/80 bg-slate-900/40 hover:bg-emerald-950/20 text-slate-400 hover:text-emerald-300 text-[11px] flex items-center justify-center gap-1.5 transition-all"
+              title="Añadir pasos prácticos o lista de tareas a este recurso"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>+ Añadir pasos prácticos (checklist)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Sección de Etiquetas (Tags) claramente visible y completa */}
+        <div className="space-y-1.5 pt-1 border-t border-slate-800/60">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {data.etiquetas && data.etiquetas.length > 0 ? (
+              data.etiquetas.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-800/50 text-sky-300 hover:border-sky-500 hover:text-white transition-colors"
+                >
+                  <Tag className="w-2.5 h-2.5 text-sky-400" />
+                  <span>#{tag}</span>
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] text-slate-500 italic font-mono flex items-center gap-1">
+                <Tag className="w-2.5 h-2.5 text-slate-600" /> Sin etiquetas definidas
+              </span>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Tags & Date Footer */}
         <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px] text-slate-400 gap-2">
-          <div className="flex items-center gap-1.5 flex-wrap max-w-[170px] overflow-hidden">
-            {(data.etiquetas || []).slice(0, 2).map((tag, idx) => (
-              <span key={idx} className="text-slate-400 hover:text-slate-200">
-                #{tag}
-              </span>
-            ))}
-          </div>
-
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Formatted Date */}
             <span 
@@ -379,7 +449,9 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
               <Calendar className="w-2.5 h-2.5 text-sky-400" />
               <span>{formatearFechaLegible(data.fechaCreacion)}</span>
             </span>
+          </div>
 
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Expand/Collapse Branch Button if this node has connections */}
             {data.hasChildren && (
               <button

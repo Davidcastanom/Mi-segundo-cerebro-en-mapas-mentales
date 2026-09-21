@@ -318,7 +318,7 @@ export default function App() {
           return {
             ...n,
             data: {
-              ...n.data,
+              ...d,
               checklist: updatedChecklist,
             },
           };
@@ -326,6 +326,20 @@ export default function App() {
         return n;
       })
     );
+
+    // Mantener sincronizado el modal de detalle si está abierto para este nodo
+    setDetailNode((prev) => {
+      if (prev && prev.id === nodeId) {
+        const updatedChecklist = (prev.checklist || []).map((item) =>
+          item.id === itemId ? { ...item, completado: !item.completado } : item
+        );
+        return {
+          ...prev,
+          checklist: updatedChecklist,
+        };
+      }
+      return prev;
+    });
   }, [setNodes]);
 
   // Quick Capture Friction: Paste listener (Ctrl+V anywhere on window when not typing)
@@ -796,6 +810,29 @@ export default function App() {
     }
   }, [nodes]);
 
+  // Auto-focus and open node when opening shared Notion links (?node=ID or #node-ID)
+  useEffect(() => {
+    if (typeof window === 'undefined' || nodes.length === 0) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryNodeId = urlParams.get('node');
+    const hashNodeId = window.location.hash.startsWith('#node-')
+      ? window.location.hash.replace('#node-', '')
+      : null;
+    const targetId = queryNodeId || hashNodeId;
+
+    if (targetId) {
+      const found = nodes.find((n) => n.id === targetId);
+      if (found) {
+        const timer = setTimeout(() => {
+          handleFocusNode(targetId);
+          setDetailNode(found.data as unknown as BrainNodeData);
+          setIsDetailModalOpen(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [nodes, handleFocusNode]);
+
   // Extract raw node data for metrics and modals
   const rawNodesList = useMemo(
     () => nodes.map((n) => n.data as unknown as BrainNodeData),
@@ -847,11 +884,24 @@ export default function App() {
               y: 120 + Math.floor(index / 4) * 340,
             };
             const nodeData = n.data || n;
+            const sanitizedData: BrainNodeData = {
+              ...nodeData,
+              etiquetas: Array.isArray(nodeData.etiquetas) ? [...nodeData.etiquetas] : [],
+              checklist: Array.isArray(nodeData.checklist)
+                ? nodeData.checklist.map((item: any, iIdx: number) => ({
+                    id: item.id || `chk-${iIdx}-${Date.now()}`,
+                    texto: item.texto || '',
+                    completado: Boolean(item.completado),
+                  }))
+                : [],
+              estado: nodeData.estado || 'por_aprender',
+            };
+
             return {
-              id: nodeData.id || `node-${index}-${Date.now()}`,
+              id: sanitizedData.id || `node-${index}-${Date.now()}`,
               type: 'brainNode',
               position,
-              data: nodeData as unknown as Record<string, unknown>,
+              data: sanitizedData as unknown as Record<string, unknown>,
             };
           })
         );
@@ -1117,6 +1167,8 @@ export default function App() {
         }}
         node={notionNode}
         category={notionNode ? categoryMap.get(notionNode.categoriaId) : undefined}
+        allNodes={rawNodesList}
+        categories={categories}
       />
 
       <EdgeEditorModal
@@ -1171,6 +1223,7 @@ export default function App() {
         }}
         onFilterByCategory={(catId) => setSelectedCategory(catId)}
         onFilterByTag={(tag) => setSearchQuery(tag)}
+        onToggleChecklist={handleToggleChecklist}
       />
 
       <PaletteModal
@@ -1216,6 +1269,7 @@ export default function App() {
         isOpen={isDriveModalOpen}
         onClose={() => setIsDriveModalOpen(false)}
         nodes={rawNodesList}
+        canvasNodes={currentBackupData.nodes}
         edges={rawEdgesList}
         categories={categories}
         currentUser={currentUser}

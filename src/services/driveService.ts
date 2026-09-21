@@ -1,10 +1,16 @@
 import { BrainNodeData, BrainEdgeData, Category } from '../types';
 
+export interface DriveCanvasNodeItem {
+  id: string;
+  position: { x: number; y: number };
+  data: BrainNodeData;
+}
+
 export interface DriveBackupPayload {
   version: string;
   timestamp: string;
   app: string;
-  nodes: BrainNodeData[];
+  nodes: (DriveCanvasNodeItem | BrainNodeData)[];
   edges: BrainEdgeData[];
   categories: Category[];
 }

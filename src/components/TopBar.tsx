@@ -34,6 +34,7 @@ import {
   Minimize2,
   Maximize2
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface TopBarProps {
   categories: Category[];
@@ -191,7 +192,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -50, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="fixed top-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl px-3 py-1.5 flex items-center gap-2 sm:gap-3 font-arial max-w-[95vw]"
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl px-2.5 sm:px-3 py-1.5 flex items-center gap-1.5 sm:gap-3 font-arial max-w-[96vw] shrink-0"
           >
             <div 
               className="w-7 h-7 rounded-lg flex items-center justify-center shadow-md shrink-0 cursor-pointer"
@@ -203,10 +204,10 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
 
             <div 
-              className="flex items-center gap-1.5 cursor-pointer"
+              className="flex items-center gap-1.5 cursor-pointer shrink-0"
               onClick={() => setIsBarCollapsed(false)}
             >
-              <span className="text-xs font-black text-slate-100 font-vanguard uppercase tracking-wider hidden sm:inline">
+              <span className="text-xs font-black text-slate-100 font-vanguard uppercase tracking-wider hidden md:inline">
                 Segundo Cerebro
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono border border-slate-700">
@@ -214,10 +215,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               </span>
             </div>
 
-            {/* Quick search button */}
+            {/* Quick search button (desktop/tablet) */}
             <button
               onClick={() => onOpenCommandPalette?.()}
-              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 transition-colors"
+              className="hidden sm:flex p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs items-center gap-1 transition-colors"
               title="Buscar o comandos (Ctrl+K)"
             >
               <Search className="w-3.5 h-3.5" />
@@ -227,7 +228,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* Quick Create Node button */}
             <button
               onClick={onOpenCreateModal}
-              className="px-2.5 py-1 rounded-xl text-white text-[11px] font-bold transition-all flex items-center gap-1 active:scale-95 shrink-0"
+              className="px-2 sm:px-2.5 py-1 rounded-xl text-white text-[11px] font-bold transition-all flex items-center gap-1 active:scale-95 shrink-0"
               style={{
                 backgroundColor: 'var(--color-acc-10-primary, #FF4103)',
                 boxShadow: '0 2px 8px var(--color-acc-10-glow, rgba(255, 65, 3, 0.4))',
@@ -238,20 +239,25 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="hidden xs:inline">Nuevo</span>
             </button>
 
+            {/* PWA Install Button (tablet/desktop in pill) */}
+            <div className="hidden sm:inline-flex shrink-0">
+              <PWAInstallButton variant="compact" />
+            </div>
+
             {/* Open Drawer Button */}
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 flex items-center gap-1 transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 flex items-center gap-1 transition-colors shrink-0"
               title="Abrir menú dinámico completo"
             >
               <Menu className="w-4 h-4" />
-              <span className="text-[11px] hidden sm:inline font-medium">Menú</span>
+              <span className="text-[11px] hidden md:inline font-medium">Menú</span>
             </button>
 
             {/* Restore / Expand Bar Button */}
             <button
               onClick={() => setIsBarCollapsed(false)}
-              className="px-2 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 border border-sky-700/60 text-[11px] font-semibold flex items-center gap-1 transition-all"
+              className="p-1.5 sm:px-2 sm:py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 border border-sky-700/60 text-[11px] font-semibold flex items-center gap-1 transition-all shrink-0"
               title="Expandir barra de menú completa"
             >
               <ChevronDown className="w-3.5 h-3.5" />
@@ -278,7 +284,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* Top Main Row */}
             <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
               {/* App Title & Brand */}
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
                 {/* Mobile Hamburger Toggle */}
                 <button
                   onClick={() => setIsDrawerOpen(true)}
@@ -299,8 +305,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 >
                   <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-xs sm:text-sm font-black text-slate-100 uppercase tracking-wider sm:tracking-widest leading-none font-vanguard truncate">
+                <div className="min-w-0 overflow-hidden">
+                  <h1 className="text-xs sm:text-sm font-black text-slate-100 uppercase tracking-wider sm:tracking-widest leading-none font-vanguard truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none">
                     Segundo Cerebro
                   </h1>
                   <p className="text-[11px] text-slate-400 font-arial leading-tight mt-0.5 hidden lg:block">
@@ -370,6 +376,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Cloud className="w-3.5 h-3.5 text-sky-400" />
                   <span className="hidden lg:inline">Drive</span>
                 </button>
+
+                {/* PWA Install Button for Web App */}
+                <PWAInstallButton className="shrink-0" />
 
                 <button
                   onClick={onAutoLayout}
@@ -530,7 +539,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {/* Toggle Search */}
                 <button
                   onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-                  className={`p-2 rounded-xl border text-xs transition-colors ${
+                  className={`p-2 rounded-xl border text-xs transition-colors shrink-0 ${
                     isMobileSearchOpen || searchQuery
                       ? 'bg-sky-950 text-sky-300 border-sky-600'
                       : 'bg-slate-800/90 text-slate-300 border-slate-700'
@@ -543,15 +552,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {/* Toggle Filters Button */}
                 <button
                   onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                  className={`px-2 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1 transition-colors ${
+                  className={`p-2 xs:px-2.5 xs:py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1 transition-colors shrink-0 ${
                     hasActiveFilters || isMobileFiltersOpen
                       ? 'bg-sky-950 text-sky-300 border-sky-600 font-semibold'
                       : 'bg-slate-800/90 text-slate-300 border-slate-700'
                   }`}
-                  title="Mostrar u ocultar filtros"
+                  title="Mostrar u ocultar filtros avanzados"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span className="text-[11px]">Filtros</span>
+                  <span className="text-[11px] hidden xs:inline">Filtros</span>
                   {hasActiveFilters && (
                     <span className="w-4 h-4 rounded-full bg-sky-500 text-slate-950 text-[10px] font-bold flex items-center justify-center ml-0.5">
                       {activeFilterCount}
@@ -559,20 +568,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                   )}
                 </button>
 
-                {/* Centered Aspects Button */}
-                <button
-                  onClick={onOpenAspectsHub}
-                  className="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-semibold flex items-center gap-1 active:scale-95"
-                  title="Centro de Aspectos y Funciones"
-                >
-                  <Compass className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="text-[11px]">Aspectos</span>
-                </button>
-
                 {/* Quick New Node Button */}
                 <button
                   onClick={onOpenCreateModal}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-white text-xs font-bold transition-all flex items-center gap-1 active:scale-95"
+                  className="px-2.5 py-1.5 rounded-xl text-white text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shrink-0"
                   style={{
                     backgroundColor: 'var(--color-acc-10-primary, #FF4103)',
                     boxShadow: '0 4px 14px var(--color-acc-10-glow, rgba(255, 65, 3, 0.4))',
@@ -580,13 +579,13 @@ export const TopBar: React.FC<TopBarProps> = ({
                   title="Crear nuevo nodo"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
-                  <span className="hidden sm:inline text-[11px]">Nuevo</span>
+                  <span className="hidden xs:inline text-[11px]">Nuevo</span>
                 </button>
 
-                {/* Minimize Bar Toggle Mobile */}
+                {/* Minimize Bar Toggle Mobile (Shown on sm+) */}
                 <button
                   onClick={() => setIsBarCollapsed(true)}
-                  className="p-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700"
+                  className="hidden sm:flex p-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 shrink-0"
                   title="Minimizar barra"
                 >
                   <ChevronUp className="w-4 h-4" />
@@ -639,57 +638,182 @@ export const TopBar: React.FC<TopBarProps> = ({
               )}
             </AnimatePresence>
 
-            {/* Bottom Row: Category, Mastery Status, and Type Filter Pills */}
-            <div 
-              className={`${
-                isMobileFiltersOpen || hasActiveFilters ? 'flex' : 'hidden md:flex'
-              } items-center justify-between gap-3 overflow-x-auto no-scrollbar scroll-smooth pt-1 text-xs w-full`}
-            >
-              {/* Category Pills */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => onSelectCategory(null)}
-                  className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 border shrink-0 ${
-                    selectedCategory === null
-                      ? 'bg-slate-100 text-slate-900 border-white font-semibold'
-                      : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
-                  }`}
+            {/* Category Carousel (Horizontal Smooth Touch Scroll) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 w-full shrink-0 touch-pan-x">
+              <button
+                onClick={() => onSelectCategory(null)}
+                className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 border shrink-0 ${
+                  selectedCategory === null
+                    ? 'bg-slate-100 text-slate-900 border-white font-semibold'
+                    : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3 h-3" />
+                <span>Todos</span>
+                <span className="text-[10px] opacity-75 font-mono">({totalNodes})</span>
+              </button>
+
+              {categories.map((cat) => {
+                const count = nodeCountsByCategory[cat.id] || 0;
+                const isSelected = selectedCategory === cat.id;
+
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => onSelectCategory(isSelected ? null : cat.id)}
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 border shrink-0 ${
+                      isSelected
+                        ? 'ring-2 text-slate-100 font-semibold shadow-md'
+                        : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                    style={{
+                      borderColor: isSelected ? cat.color : undefined,
+                      backgroundColor: isSelected ? `${cat.color}25` : undefined,
+                      color: isSelected ? '#ffffff' : undefined,
+                    }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span>{cat.nombre}</span>
+                    <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mobile Secondary Filters Panel (Collapsible, structured for touch, non-overflowing) */}
+            <AnimatePresence>
+              {(isMobileFiltersOpen || hasActiveFilters) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="flex md:hidden flex-col gap-2 pt-1 border-t border-slate-800/80 w-full overflow-hidden"
                 >
-                  <Layers className="w-3 h-3" />
-                  <span>Todos los temas</span>
-                  <span className="text-[10px] opacity-75 font-mono">({totalNodes})</span>
-                </button>
+                  {/* Row 1: Mastery Status */}
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 w-full">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0 mr-1">Estado:</span>
+                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 shrink-0">
+                      <button
+                        onClick={() => onSelectStatus('todos')}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
+                          selectedStatus === 'todos' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400'
+                        }`}
+                      >
+                        Todos
+                      </button>
+                      <button
+                        onClick={() => onSelectStatus('por_aprender')}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedStatus === 'por_aprender' ? 'bg-rose-950 text-rose-300 font-semibold border border-rose-800' : 'text-slate-400'
+                        }`}
+                      >
+                        <HelpCircle className="w-3 h-3 text-rose-400" />
+                        <span>Aprender</span>
+                      </button>
+                      <button
+                        onClick={() => onSelectStatus('en_practica')}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedStatus === 'en_practica' ? 'bg-amber-950 text-amber-300 font-semibold border border-amber-800' : 'text-slate-400'
+                        }`}
+                      >
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        <span>Práctica</span>
+                      </button>
+                      <button
+                        onClick={() => onSelectStatus('dominado')}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedStatus === 'dominado' ? 'bg-emerald-950 text-emerald-300 font-semibold border border-emerald-800' : 'text-slate-400'
+                        }`}
+                      >
+                        <Award className="w-3 h-3 text-emerald-400" />
+                        <span>Dominados</span>
+                      </button>
+                    </div>
+                  </div>
 
-                {categories.map((cat) => {
-                  const count = nodeCountsByCategory[cat.id] || 0;
-                  const isSelected = selectedCategory === cat.id;
+                  {/* Row 2: Formats & Dates */}
+                  <div className="flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full">
+                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 shrink-0">
+                      <button
+                        onClick={() => onSelectType('todos')}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors ${
+                          selectedType === 'todos' ? 'bg-slate-800 text-slate-100 font-semibold' : 'text-slate-400'
+                        }`}
+                      >
+                        Formatos
+                      </button>
+                      <button
+                        onClick={() => onSelectType('enlace')}
+                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedType === 'enlace' ? 'bg-slate-800 text-pink-300' : 'text-slate-400'
+                        }`}
+                      >
+                        <Instagram className="w-3 h-3 text-pink-400" />
+                        <span>Reels</span>
+                      </button>
+                      <button
+                        onClick={() => onSelectType('nota')}
+                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedType === 'nota' ? 'bg-slate-800 text-emerald-300' : 'text-slate-400'
+                        }`}
+                      >
+                        <FileText className="w-3 h-3 text-emerald-400" />
+                        <span>Notas</span>
+                      </button>
+                      <button
+                        onClick={() => onSelectType('imagen')}
+                        className={`px-1.5 py-0.5 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                          selectedType === 'imagen' ? 'bg-slate-800 text-amber-300' : 'text-slate-400'
+                        }`}
+                      >
+                        <ImageIcon className="w-3 h-3 text-amber-400" />
+                        <span>Imágenes</span>
+                      </button>
+                    </div>
 
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => onSelectCategory(isSelected ? null : cat.id)}
-                      className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 border shrink-0 ${
-                        isSelected
-                          ? 'ring-2 text-slate-100 font-semibold shadow-md'
-                          : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
-                      style={{
-                        borderColor: isSelected ? cat.color : undefined,
-                        backgroundColor: isSelected ? `${cat.color}25` : undefined,
-                        color: isSelected ? '#ffffff' : undefined,
-                      }}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span>{cat.nombre}</span>
-                      <span className="text-[10px] opacity-75 font-mono">({count})</span>
-                    </button>
-                  );
-                })}
-              </div>
+                    <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 px-1.5 rounded-xl border border-slate-800 shrink-0">
+                      <Calendar className="w-3 h-3 text-sky-400" />
+                      <select
+                        value={selectedDate}
+                        onChange={(e) => onSelectDate(e.target.value as DateFilterType)}
+                        className="bg-slate-900 text-slate-200 text-[11px] font-medium rounded-lg px-1.5 py-0.5 border border-slate-700/80 focus:outline-none"
+                      >
+                        <option value="todas">Todas</option>
+                        <option value="hoy">Hoy</option>
+                        <option value="7dias">7 días</option>
+                        <option value="30dias">30 días</option>
+                        <option value="esteMes">Este mes</option>
+                      </select>
+                      <button
+                        onClick={() => onSelectDateSort(selectedDateSort === 'recientes' ? 'antiguos' : 'recientes')}
+                        className={`p-1 rounded-lg text-[11px] border border-slate-800 ${
+                          selectedDateSort === 'recientes' ? 'bg-slate-800 text-sky-300' : 'text-slate-400'
+                        }`}
+                        title="Ordenar por fecha"
+                      >
+                        <ArrowUpDown className="w-3 h-3" />
+                      </button>
+                    </div>
 
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="px-2 py-1 rounded-xl text-[10px] font-medium bg-red-950/60 text-red-300 border border-red-800/60 flex items-center gap-1 shrink-0"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Limpiar</span>
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Desktop Filters Bar (Secondary filters in single desktop row) */}
+            <div className="hidden md:flex items-center justify-end gap-2.5 overflow-x-auto no-scrollbar pt-0.5 text-xs w-full">
               {/* Cognitive Mastery Status Filter Pills */}
               <div className="flex items-center gap-1 bg-slate-950/70 p-0.5 rounded-xl border border-slate-800 shrink-0">
                 <button
@@ -830,7 +954,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   title="Restablecer todos los filtros"
                 >
                   <X className="w-3 h-3" />
-                  <span>Limpiar filtros ({filteredCount}/{totalNodes})</span>
+                  <span>Limpiar ({filteredCount}/{totalNodes})</span>
                 </button>
               )}
             </div>
@@ -920,6 +1044,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </div>
 
                 {/* Primary Actions Grid */}
+                {/* PWA Mobile App Download Banner */}
+                <PWAInstallButton variant="banner" />
+
                 <div className="space-y-2">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
                     Acciones Rápidas

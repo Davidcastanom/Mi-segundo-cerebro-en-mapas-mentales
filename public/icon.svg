@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#001621" />
+      <stop offset="100%" stop-color="#022436" />
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b3d" />
+      <stop offset="100%" stop-color="#ff4103" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background with subtle border -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="#0d4364" stroke-width="3" opacity="0.6" />
+
+  <!-- Neural Network Connections -->
+  <g stroke="#38bdf8" stroke-width="4" opacity="0.45" stroke-dasharray="6,6">
+    <line x1="160" y1="180" x2="256" y2="140" />
+    <line x1="256" y1="140" x2="352" y2="180" />
+    <line x1="160" y1="180" x2="180" y2="280" />
+    <line x1="352" y1="180" x2="332" y2="280" />
+    <line x1="180" y1="280" x2="256" y2="340" />
+    <line x1="332" y1="280" x2="256" y2="340" />
+    <line x1="256" y1="140" x2="256" y2="256" />
+    <line x1="180" y1="280" x2="256" y2="256" />
+    <line x1="332" y1="280" x2="256" y2="256" />
+    <line x1="256" y1="256" x2="256" y2="340" />
+  </g>
+
+  <!-- Solid Neural Synapses -->
+  <g stroke="#0284c7" stroke-width="5" stroke-linecap="round" opacity="0.7">
+    <path d="M 170 200 C 200 160, 230 150, 256 160" fill="none" />
+    <path d="M 342 200 C 312 160, 282 150, 256 160" fill="none" />
+    <path d="M 180 270 C 210 260, 240 280, 256 310" fill="none" />
+    <path d="M 332 270 C 302 260, 272 280, 256 310" fill="none" />
+  </g>
+
+  <!-- Brain Hemisphere Lobes Outline -->
+  <path d="M 246 120 C 170 115, 120 170, 120 240 C 120 295, 155 340, 195 365 C 225 385, 246 395, 246 395" 
+        fill="none" stroke="url(#cyanGrad)" stroke-width="12" stroke-linecap="round" />
+  <path d="M 266 120 C 342 115, 392 170, 392 240 C 392 295, 357 340, 317 365 C 287 385, 266 395, 266 395" 
+        fill="none" stroke="url(#cyanGrad)" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Inner Brain Folds -->
+  <path d="M 190 190 C 220 200, 236 170, 246 220 C 210 240, 170 230, 160 270" 
+        fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" opacity="0.8" />
+  <path d="M 322 190 C 292 200, 276 170, 266 220 C 302 240, 342 230, 352 270" 
+        fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" opacity="0.8" />
+
+  <!-- Central Synaptic Core (The "Second Brain" spark) -->
+  <circle cx="256" cy="256" r="28" fill="url(#orangeGrad)" filter="url(#glow)" />
+  <circle cx="256" cy="256" r="14" fill="#ffffff" />
+
+  <!-- Concept Nodes (Visual Learning Cards representation) -->
+  <!-- Top Node -->
+  <circle cx="256" cy="140" r="18" fill="#38bdf8" />
+  <circle cx="256" cy="140" r="8" fill="#001621" />
+
+  <!-- Left Nodes -->
+  <circle cx="160" cy="180" r="16" fill="#38bdf8" />
+  <circle cx="160" cy="180" r="7" fill="#001621" />
+
+  <circle cx="180" cy="280" r="20" fill="url(#orangeGrad)" />
+  <circle cx="180" cy="280" r="9" fill="#ffffff" />
+
+  <!-- Right Nodes -->
+  <circle cx="352" cy="180" r="16" fill="#38bdf8" />
+  <circle cx="352" cy="180" r="7" fill="#001621" />
+
+  <circle cx="332" cy="280" r="20" fill="url(#orangeGrad)" />
+  <circle cx="332" cy="280" r="9" fill="#ffffff" />
+
+  <!-- Bottom Node -->
+  <circle cx="256" cy="340" r="18" fill="#38bdf8" />
+  <circle cx="256" cy="340" r="8" fill="#001621" />
+
+  <!-- Floating Sparkles -->
+  <circle cx="130" cy="140" r="5" fill="#38bdf8" opacity="0.8" />
+  <circle cx="382" cy="140" r="5" fill="#38bdf8" opacity="0.8" />
+  <circle cx="120" cy="310" r="4" fill="#ff6b3d" opacity="0.8" />
+  <circle cx="392" cy="310" r="4" fill="#ff6b3d" opacity="0.8" />
+</svg>

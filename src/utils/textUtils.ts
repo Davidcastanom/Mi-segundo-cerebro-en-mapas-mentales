@@ -181,6 +181,129 @@ export function generarCardNotionSVG(
 }
 
 /**
+ * Convierte un Data URL de SVG a un Blob de tipo PNG en alta resolución (1200x630)
+ * para permitir copiar directamente como imagen nativa al portapapeles y pegar en Notion (Ctrl+V)
+ */
+export async function convertirSvgDataUrlAPngBlob(svgDataUrl: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1200;
+      canvas.height = 630;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('No se pudo obtener el contexto 2D del canvas'));
+        return;
+      }
+      ctx.fillStyle = '#001621';
+      ctx.fillRect(0, 0, 1200, 630);
+      ctx.drawImage(img, 0, 0, 1200, 630);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Fallo en canvas.toBlob'));
+        }
+      }, 'image/png', 0.95);
+    };
+    img.onerror = (err) => reject(err);
+    img.src = svgDataUrl;
+  });
+}
+
+/**
+ * Genera una tarjeta OpenGraph (1200x630) para el MAPA MENTAL COMPLETO
+ * para que el usuario pueda previsualizar o compartir el mapa global en Notion
+ */
+export function generarCardMapaCompletoSVG(
+  tituloMapa: string,
+  totalNodos: number,
+  categorias: Category[],
+  totalChecklist: number,
+  totalTags: number
+): string {
+  const escapeXML = (str: string) =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+  const displayTitle = formatearTituloNotion(tituloMapa || 'Mi Mapa Mental de Aprendizaje');
+  const catNames = (categorias || []).slice(0, 4).map(c => c.nombre).join(' • ') || 'Conceptos';
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+    <defs>
+      <linearGradient id="bgGradMap" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#001621" />
+        <stop offset="100%" stop-color="#022436" />
+      </linearGradient>
+      <linearGradient id="glowLine" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#38bdf8" />
+        <stop offset="50%" stop-color="#ff4103" />
+        <stop offset="100%" stop-color="#10b981" />
+      </linearGradient>
+    </defs>
+    
+    <rect width="1200" height="630" fill="url(#bgGradMap)" />
+    
+    <!-- Outer Card Frame -->
+    <rect x="24" y="24" width="1152" height="582" rx="28" fill="#011f30" stroke="#0d4364" stroke-width="2.5" />
+    <rect x="24" y="24" width="1152" height="12" rx="6" fill="url(#glowLine)" />
+    
+    <!-- Header -->
+    <g transform="translate(70, 75)">
+      <circle cx="20" cy="20" r="16" fill="#38bdf8" fill-opacity="0.2" stroke="#38bdf8" stroke-width="2" />
+      <circle cx="20" cy="20" r="6" fill="#38bdf8" />
+      <text x="50" y="26" fill="#87b5d1" font-family="system-ui, sans-serif" font-size="20" font-weight="700" letter-spacing="1">MI SEGUNDO CEREBRO • MAPA GENERAL</text>
+      
+      <rect x="760" y="0" width="270" height="42" rx="21" fill="#38bdf8" fill-opacity="0.2" stroke="#38bdf8" stroke-width="1.8" />
+      <text x="895" y="27" text-anchor="middle" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="16" font-weight="700">MAPA INTERACTIVO</text>
+    </g>
+
+    <!-- Map Title -->
+    <g transform="translate(70, 180)">
+      <text x="0" y="36" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="46" font-weight="800">${escapeXML(displayTitle)}</text>
+      <text x="0" y="80" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="20" font-weight="600">${escapeXML(catNames)}</text>
+    </g>
+
+    <!-- Metrics Cards Grid -->
+    <g transform="translate(70, 310)">
+      <!-- Card 1: Nodos -->
+      <rect x="0" y="0" width="240" height="140" rx="16" fill="#001621" stroke="#0d4364" stroke-width="1.8" />
+      <text x="24" y="45" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="14" font-weight="700">MÓDULOS / NODOS</text>
+      <text x="24" y="105" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="48" font-weight="900">${totalNodos}</text>
+
+      <!-- Card 2: Materias -->
+      <rect x="270" y="0" width="240" height="140" rx="16" fill="#001621" stroke="#0d4364" stroke-width="1.8" />
+      <text x="294" y="45" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="14" font-weight="700">CATEGORÍAS</text>
+      <text x="294" y="105" fill="#ff4103" font-family="system-ui, sans-serif" font-size="48" font-weight="900">${categorias.length}</text>
+
+      <!-- Card 3: Pasos / Checklist -->
+      <rect x="540" y="0" width="240" height="140" rx="16" fill="#001621" stroke="#0d4364" stroke-width="1.8" />
+      <text x="564" y="45" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="14" font-weight="700">PASOS DE PRÁCTICA</text>
+      <text x="564" y="105" fill="#10b981" font-family="system-ui, sans-serif" font-size="48" font-weight="900">${totalChecklist}</text>
+
+      <!-- Card 4: Tags -->
+      <rect x="810" y="0" width="240" height="140" rx="16" fill="#001621" stroke="#0d4364" stroke-width="1.8" />
+      <text x="834" y="45" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="14" font-weight="700">ETIQUETAS CLAVE</text>
+      <text x="834" y="105" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="48" font-weight="900">${totalTags}</text>
+    </g>
+
+    <!-- Footer -->
+    <g transform="translate(70, 545)">
+      <text x="0" y="20" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="16">Bitácora Visual de Aprendizaje • Listo para incrustar en Notion</text>
+      <text x="1050" y="20" text-anchor="end" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="16" font-weight="600">Resolución 1200 × 630 px</text>
+    </g>
+  </svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+/**
  * Formatear fecha a formato corto legible (ej: 18 sep 2026)
  */
 export function formatearFechaLegible(fechaStr?: string): string {

@@ -17,6 +17,7 @@ import {
   Sparkles,
   Layers
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AspectsHubModalProps {
   isOpen: boolean;
@@ -115,6 +116,9 @@ export const AspectsHubModal: React.FC<AspectsHubModalProps> = ({
 
         {/* Body Grid with Aspect Cards */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
+          {/* PWA Mobile App Download Card */}
+          <PWAInstallButton variant="banner" />
+
           {/* Quick Primary Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Nuevo Nodo */}
