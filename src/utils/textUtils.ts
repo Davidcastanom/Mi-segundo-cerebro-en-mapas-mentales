@@ -500,47 +500,84 @@ export function generarDocumentoMarkdown(
 ): string {
   const razon = obtenerRazonEfectiva(node);
   const tagsFormatted = (node.etiquetas || []).map((t) => `#${t}`).join(' ');
+  const ytId = extraerYouTubeId(node.contenido) || extraerYouTubeId(node.urlOriginal);
+
+  const estadoLabel = 
+    node.estado === 'dominado' ? '🟢 Dominado' :
+    node.estado === 'en_practica' ? '🔵 En Práctica' : '🟡 Por Aprender';
+
+  const checklistItems = node.checklist || [];
+  const checklistCompleted = checklistItems.filter((i) => i.completado).length;
 
   let md = `---
-title: "${node.titulo.replace(/"/g, '\\"')}"
+title: "${(node.titulo || 'Recurso').replace(/"/g, '\\"')}"
 category: "${category?.nombre || 'General'}"
 type: "${node.tipo}"
+status: "${node.estado || 'por_aprender'}"
 created_at: "${node.fechaCreacion || new Date().toISOString()}"
 tags: [${(node.etiquetas || []).map((t) => `"${t}"`).join(', ')}]
----
+platform: "${node.plataforma || (ytId ? 'youtube' : 'web')}"
+${ytId ? `youtube_id: "${ytId}"\n` : ''}---
 
 # 🧠 ${node.titulo}
 
-- **Materia / Tema**: ${category?.nombre || 'General'}
-- **Tipo de Recurso**: ${node.tipo.toUpperCase()} ${node.plataforma ? `(${node.plataforma})` : ''}
+- **Materia / Categoría**: ${category?.nombre || 'General'}
+- **Tipo de Recurso**: ${node.tipo.toUpperCase()}${node.plataforma ? ` (${node.plataforma.toUpperCase()})` : ''}
+- **Estado de Dominio**: ${estadoLabel}
 - **Fecha de Registro**: ${formatearFechaCompleta(node.fechaCreacion)}
-${node.urlOriginal || (node.tipo === 'enlace' ? `- **Enlace Original**: [Abrir Recurso](${node.contenido})` : '')}
+${node.urlOriginal || (node.tipo === 'enlace' ? `- **Enlace Original**: [${node.contenido}](${node.contenido})` : '')}
 
 ---
 
 ## 🎯 ¿Por qué lo guardé? (Razón de Aprendizaje)
-> **${razon}**  
-> *(Modo: ${node.razonModo === 'manual' ? 'Manual — redacción propia' : 'Automático — extracción clave'})*
+> **"${razon}"**  
+> *(Modo: ${node.razonModo === 'manual' ? 'Manual — redacción propia' : 'Automático — síntesis contextual'})*
 
 ---
 
-## 📝 Contenido y Notas de Estudio
+${ytId ? `## 🎬 Video de Aprendizaje (YouTube)
+- **ID del Video**: \`${ytId}\`
+- **Enlace de Reproducción**: [Ver en YouTube](${node.contenido})
+${node.imagenUrl ? `\n![Miniatura del Video](${node.imagenUrl})\n` : ''}
+---
+
+` : (node.plataforma === 'instagram' ? `## 📸 Reel / Publicación de Instagram
+- **Enlace de Origen**: [Ver en Instagram](${node.contenido})
+${node.imagenUrl ? `\n![Portada del Reel](${node.imagenUrl})\n` : ''}
+---
+
+` : '')}## 📝 Notas y Contenido de Estudio
 
 `;
 
   if (node.tipo === 'nota') {
     md += `${node.contenido}\n\n`;
   } else if (node.tipo === 'enlace') {
-    md += `Recurso multimedia o enlace externo guardado en la bitácora:\n\nURL: ${node.contenido}\n\n`;
-    if (node.imagenUrl) {
+    md += `Recurso multimedia o enlace externo guardado en la bitácora:\n\nURL: [${node.contenido}](${node.contenido})\n\n`;
+    if (node.imagenUrl && !ytId && node.plataforma !== 'instagram') {
       md += `![Vista previa](${node.imagenUrl})\n\n`;
     }
   } else if (node.tipo === 'imagen') {
     md += `Infografía o captura gráfica de referencia:\n\n![${node.titulo}](${node.contenido})\n\n`;
   }
 
+  // Lista de verificación práctica / checklist
+  if (checklistItems.length > 0) {
+    md += `---
+
+## ✅ Plan de Acción y Lista de Verificación (${checklistCompleted}/${checklistItems.length} completados)
+
+`;
+    checklistItems.forEach((item) => {
+      md += `- [${item.completado ? 'x' : ' '}] ${item.texto}\n`;
+    });
+    md += `\n`;
+  }
+
   if (node.etiquetas && node.etiquetas.length > 0) {
-    md += `**Etiquetas**: ${tagsFormatted}\n\n`;
+    md += `---
+
+**Etiquetas**: ${tagsFormatted}\n\n`;
   }
 
   if (conexiones.length > 0) {
@@ -566,7 +603,7 @@ Este concepto está interconectado con las siguientes ramas de conocimiento:
 }
 
 /**
- * Generar documento HTML estilizado e imprimible
+ * Generar documento HTML estilizado e imprimible con reproductor de video incrustado y checklist
  */
 export function generarDocumentoHTML(
   node: BrainNodeData,
@@ -576,6 +613,21 @@ export function generarDocumentoHTML(
   const razon = obtenerRazonEfectiva(node);
   const color = category?.color || '#0284c7';
   const fecha = formatearFechaCompleta(node.fechaCreacion);
+  const ytId = extraerYouTubeId(node.contenido) || extraerYouTubeId(node.urlOriginal);
+
+  const estadoLabel = 
+    node.estado === 'dominado' ? '🟢 Dominado' :
+    node.estado === 'en_practica' ? '🔵 En Práctica' : '🟡 Por Aprender';
+  const estadoBg = 
+    node.estado === 'dominado' ? 'rgba(16, 185, 129, 0.15)' :
+    node.estado === 'en_practica' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(234, 179, 8, 0.15)';
+  const estadoColor = 
+    node.estado === 'dominado' ? '#34d399' :
+    node.estado === 'en_practica' ? '#38bdf8' : '#facc15';
+
+  const checklistItems = node.checklist || [];
+  const checklistCompleted = checklistItems.filter((i) => i.completado).length;
+  const checklistPercent = checklistItems.length > 0 ? Math.round((checklistCompleted / checklistItems.length) * 100) : 0;
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -592,7 +644,7 @@ export function generarDocumentoHTML(
       padding: 40px 20px;
     }
     .container {
-      max-width: 800px;
+      max-width: 820px;
       margin: 0 auto;
       background: #1e293b;
       border: 1px solid #334155;
@@ -616,6 +668,18 @@ export function generarDocumentoHTML(
       background: ${color}20;
       color: ${color};
       border: 1px solid ${color}40;
+      margin-right: 8px;
+      margin-bottom: 12px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: ${estadoBg};
+      color: ${estadoColor};
+      border: 1px solid ${estadoColor}40;
       margin-bottom: 12px;
     }
     h1 {
@@ -648,17 +712,77 @@ export function generarDocumentoHTML(
       font-style: italic;
       color: #f1f5f9;
     }
+    .video-container {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+      border-radius: 12px;
+      margin: 20px 0;
+      background: #000;
+      border: 1px solid #334155;
+    }
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
     .content-box {
       margin: 24px 0;
       white-space: pre-line;
       color: #cbd5e1;
       font-size: 15px;
     }
+    .checklist-container {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 24px 0;
+    }
+    .checklist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .checklist-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 14px;
+    }
+    .checklist-item:last-child {
+      border-bottom: none;
+    }
+    .checkbox-box {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 2px solid #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fff;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .checkbox-box.checked {
+      background: #10b981;
+      border-color: #10b981;
+    }
     .tag {
       display: inline-block;
       background: #334155;
       color: #93c5fd;
-      padding: 2px 8px;
+      padding: 3px 10px;
       border-radius: 6px;
       font-size: 12px;
       margin-right: 6px;
@@ -686,16 +810,19 @@ export function generarDocumentoHTML(
       padding-top: 20px;
     }
     @media print {
-      body { background: #fff; color: #1e293b; padding: 0; }
-      .container { border: none; box-shadow: none; padding: 20px; max-width: 100%; }
-      .reason-box { background: #f8fafc; }
+      body { background: #fff !important; color: #1e293b !important; padding: 0; }
+      .container { border: none !important; box-shadow: none !important; padding: 20px !important; max-width: 100% !important; background: #fff !important; }
+      .reason-box, .checklist-container, .connection-item { background: #f8fafc !important; border-color: #e2e8f0 !important; color: #1e293b !important; }
+      .reason-text, .content-box { color: #1e293b !important; }
+      h1, .meta { color: #0f172a !important; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="badge">${category?.nombre || 'General'} • ${node.tipo.toUpperCase()}</div>
+      <div class="badge">${category?.nombre || 'General'} • ${node.tipo.toUpperCase()}${node.plataforma ? ` (${node.plataforma.toUpperCase()})` : ''}</div>
+      <div class="status-badge">${estadoLabel}</div>
       <h1>${node.titulo}</h1>
       <div class="meta">Registrado el ${fecha} • Mi Segundo Cerebro</div>
     </div>
@@ -705,12 +832,51 @@ export function generarDocumentoHTML(
       <div class="reason-text">"${razon}"</div>
     </div>
 
-    <h2 style="font-size: 16px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Notas y Contenido</h2>
+    ${ytId ? `
+    <div style="margin: 20px 0;">
+      <h2 style="font-size: 15px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Reproductor de Video Integrado</h2>
+      <div class="video-container">
+        <iframe src="https://www.youtube.com/embed/${ytId}" title="${node.titulo}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        Enlace directo: <a href="${node.contenido}" style="color: #38bdf8;" target="_blank">Abrir en YouTube ↗</a>
+      </div>
+    </div>
+    ` : ''}
+
+    <h2 style="font-size: 15px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Notas y Contenido</h2>
     <div class="content-box">
-      ${node.tipo === 'enlace' ? `Enlace guardado: <a href="${node.contenido}" style="color: #38bdf8;" target="_blank">${node.contenido}</a>` : node.contenido}
+      ${node.tipo === 'enlace' && !ytId ? `Enlace guardado: <a href="${node.contenido}" style="color: #38bdf8;" target="_blank">${node.contenido}</a>` : node.contenido}
     </div>
 
-    ${node.imagenUrl ? `<div style="margin: 20px 0;"><img src="${node.imagenUrl}" style="max-width: 100%; border-radius: 8px; border: 1px solid #334155;" alt="Apoyo" /></div>` : ''}
+    ${node.imagenUrl && !ytId ? `
+    <div style="margin: 20px 0;">
+      <img src="${node.imagenUrl}" style="max-width: 100%; border-radius: 8px; border: 1px solid #334155;" alt="Apoyo visual" />
+    </div>` : ''}
+
+    ${checklistItems.length > 0 ? `
+    <div class="checklist-container">
+      <div class="checklist-header">
+        <h3 style="font-size: 14px; font-weight: 700; color: #f8fafc; text-transform: uppercase;">
+          Plan de Acción y Pasos (${checklistCompleted}/${checklistItems.length} completados • ${checklistPercent}%)
+        </h3>
+      </div>
+      <div style="width: 100%; background: #1e293b; height: 6px; border-radius: 999px; margin-bottom: 14px; overflow: hidden;">
+        <div style="width: ${checklistPercent}%; background: #10b981; height: 100%;"></div>
+      </div>
+      <div>
+        ${checklistItems.map((item) => `
+          <div class="checklist-item">
+            <div class="checkbox-box ${item.completado ? 'checked' : ''}">
+              ${item.completado ? '✓' : ''}
+            </div>
+            <div style="${item.completado ? 'text-decoration: line-through; color: #94a3b8;' : 'color: #e2e8f0;'}">
+              ${item.texto}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>` : ''}
 
     ${node.etiquetas && node.etiquetas.length > 0 ? `
     <div style="margin-top: 20px;">
@@ -818,9 +984,16 @@ export function generarDossierCompletoMarkdown(
   const fechaGeneracion = formatearFechaCompleta(new Date().toISOString());
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
+  const dominadosCount = nodes.filter((n) => n.estado === 'dominado').length;
+  const enPracticaCount = nodes.filter((n) => n.estado === 'en_practica').length;
+  const porAprenderCount = nodes.filter((n) => !n.estado || n.estado === 'por_aprender').length;
+  const totalChecklist = nodes.reduce((acc, n) => acc + (n.checklist?.length || 0), 0);
+  const completedChecklist = nodes.reduce((acc, n) => acc + (n.checklist?.filter((i) => i.completado).length || 0), 0);
+
   let md = `# ${tituloDossier}\n\n`;
   md += `> **Generado el:** ${fechaGeneracion}\n`;
-  md += `> **Total de nodos:** ${nodes.length}\n\n`;
+  md += `> **Total de nodos:** ${nodes.length} | **Progreso Global:** 🟢 ${dominadosCount} Dominados • 🔵 ${enPracticaCount} En Práctica • 🟡 ${porAprenderCount} Por Aprender\n`;
+  md += `> **Pasos de Acción:** ${completedChecklist} de ${totalChecklist} completados\n\n`;
   md += `---\n\n`;
 
   // Índice de Contenidos
@@ -828,7 +1001,8 @@ export function generarDossierCompletoMarkdown(
   nodes.forEach((n, index) => {
     const cat = categoryMap.get(n.categoriaId);
     const fecha = formatearFechaLegible(n.fechaCreacion);
-    md += `${index + 1}. [${n.titulo}](#nodo-${n.id}) - *${cat?.nombre || 'General'}* (${fecha})\n`;
+    const statusIcon = n.estado === 'dominado' ? '🟢' : n.estado === 'en_practica' ? '🔵' : '🟡';
+    md += `${index + 1}. [${statusIcon} ${n.titulo}](#nodo-${n.id}) - *${cat?.nombre || 'General'}* (${fecha})\n`;
   });
   md += `\n---\n\n`;
 
@@ -838,10 +1012,14 @@ export function generarDossierCompletoMarkdown(
     const cat = categoryMap.get(n.categoriaId);
     const razon = obtenerRazonEfectiva(n);
     const fecha = formatearFechaCompleta(n.fechaCreacion);
+    const ytId = extraerYouTubeId(n.contenido) || extraerYouTubeId(n.urlOriginal);
+    const estadoStr = n.estado === 'dominado' ? '🟢 Dominado' : n.estado === 'en_practica' ? '🔵 En Práctica' : '🟡 Por Aprender';
+    const chk = n.checklist || [];
 
     md += `### <a id="nodo-${n.id}"></a>${index + 1}. ${n.titulo}\n\n`;
     md += `- **Categoría:** ${cat?.nombre || 'General'}\n`;
-    md += `- **Tipo:** ${n.tipo.toUpperCase()}\n`;
+    md += `- **Tipo de Recurso:** ${n.tipo.toUpperCase()}${n.plataforma ? ` (${n.plataforma.toUpperCase()})` : ''}\n`;
+    md += `- **Estado de Dominio:** ${estadoStr}\n`;
     md += `- **Fecha de creación:** ${fecha}\n`;
     if (n.etiquetas && n.etiquetas.length > 0) {
       md += `- **Etiquetas:** ${n.etiquetas.map((t) => `\`#${t}\``).join(', ')}\n`;
@@ -851,15 +1029,30 @@ export function generarDossierCompletoMarkdown(
     md += `#### 💡 ¿Por qué lo guardé? (Razón de Aprendizaje)\n`;
     md += `> "${razon}"\n\n`;
 
-    md += `#### 📝 Notas y Contenido\n`;
-    if (n.tipo === 'enlace') {
-      md += `Enlace: [${n.contenido}](${n.contenido})\n\n`;
+    if (ytId) {
+      md += `#### 🎬 Video de YouTube\n`;
+      md += `- URL: [${n.contenido}](${n.contenido})\n`;
+      if (n.imagenUrl) {
+        md += `\n![Miniatura](${n.imagenUrl})\n\n`;
+      }
+    } else if (n.tipo === 'enlace') {
+      md += `#### 🔗 Enlace\n`;
+      md += `URL: [${n.contenido}](${n.contenido})\n\n`;
+      if (n.imagenUrl) {
+        md += `![Vista previa](${n.imagenUrl})\n\n`;
+      }
     } else {
+      md += `#### 📝 Notas y Contenido\n`;
       md += `${n.contenido}\n\n`;
     }
 
-    if (n.imagenUrl) {
-      md += `![Imagen de apoyo](${n.imagenUrl})\n\n`;
+    if (chk.length > 0) {
+      const cDone = chk.filter((i) => i.completado).length;
+      md += `#### ✅ Plan de Acción (${cDone}/${chk.length} completados)\n`;
+      chk.forEach((item) => {
+        md += `- [${item.completado ? 'x' : ' '}] ${item.texto}\n`;
+      });
+      md += `\n`;
     }
 
     md += `---\n\n`;
@@ -879,6 +1072,12 @@ export function generarDossierCompletoHTML(
 ): string {
   const fechaGeneracion = formatearFechaCompleta(new Date().toISOString());
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
+
+  const dominadosCount = nodes.filter((n) => n.estado === 'dominado').length;
+  const enPracticaCount = nodes.filter((n) => n.estado === 'en_practica').length;
+  const porAprenderCount = nodes.filter((n) => !n.estado || n.estado === 'por_aprender').length;
+  const totalChecklist = nodes.reduce((acc, n) => acc + (n.checklist?.length || 0), 0);
+  const completedChecklist = nodes.reduce((acc, n) => acc + (n.checklist?.filter((i) => i.completado).length || 0), 0);
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -909,7 +1108,24 @@ export function generarDossierCompletoHTML(
       margin-bottom: 36px;
     }
     h1 { font-size: 32px; color: #f8fafc; margin: 0 0 10px 0; }
-    .meta-bar { font-size: 14px; color: #94a3b8; }
+    .meta-bar { font-size: 14px; color: #94a3b8; margin-bottom: 16px; }
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 16px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      margin-top: 16px;
+    }
+    .stat-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 8px;
+      background: #1e293b;
+    }
     .node-card {
       background: #0f172a;
       border: 1px solid #1e293b;
@@ -924,6 +1140,8 @@ export function generarDossierCompletoHTML(
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .badge {
       display: inline-block;
@@ -933,6 +1151,13 @@ export function generarDossierCompletoHTML(
       font-weight: 700;
       text-transform: uppercase;
     }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .reason-box {
       background: rgba(30, 41, 59, 0.5);
       border-left: 4px solid #38bdf8;
@@ -941,6 +1166,31 @@ export function generarDossierCompletoHTML(
       margin: 16px 0;
       font-style: italic;
       color: #cbd5e1;
+    }
+    .video-container {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+      border-radius: 10px;
+      margin: 16px 0;
+      background: #000;
+      border: 1px solid #334155;
+    }
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .checklist-block {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px;
+      margin: 14px 0;
     }
     .tag {
       display: inline-block;
@@ -960,6 +1210,12 @@ export function generarDossierCompletoHTML(
       <div class="meta-bar">
         Generado el ${fechaGeneracion} • Total: ${nodes.length} nodos registrados
       </div>
+      <div class="stats-bar">
+        <span class="stat-pill" style="color: #34d399; border: 1px solid rgba(52,211,153,0.3);">🟢 ${dominadosCount} Dominados</span>
+        <span class="stat-pill" style="color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);">🔵 ${enPracticaCount} En Práctica</span>
+        <span class="stat-pill" style="color: #facc15; border: 1px solid rgba(250,204,21,0.3);">🟡 ${porAprenderCount} Por Aprender</span>
+        <span class="stat-pill" style="color: #cbd5e1;">✅ Pasos: ${completedChecklist}/${totalChecklist} completados</span>
+      </div>
     </div>
 
     ${nodes.map((n) => {
@@ -967,25 +1223,65 @@ export function generarDossierCompletoHTML(
       const razon = obtenerRazonEfectiva(n);
       const fecha = formatearFechaLegible(n.fechaCreacion);
       const color = cat?.color || '#38bdf8';
+      const ytId = extraerYouTubeId(n.contenido) || extraerYouTubeId(n.urlOriginal);
+      const chk = n.checklist || [];
+      const chkDone = chk.filter((i) => i.completado).length;
+
+      const estadoText = n.estado === 'dominado' ? '🟢 Dominado' : n.estado === 'en_practica' ? '🔵 En Práctica' : '🟡 Por Aprender';
+      const estadoColor = n.estado === 'dominado' ? '#34d399' : n.estado === 'en_practica' ? '#38bdf8' : '#facc15';
+      const estadoBg = n.estado === 'dominado' ? 'rgba(52,211,153,0.15)' : n.estado === 'en_practica' ? 'rgba(56,189,248,0.15)' : 'rgba(250,204,21,0.15)';
 
       return `
       <div class="node-card">
         <div class="node-title">
           <span>${n.titulo}</span>
-          <span class="badge" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40;">
-            ${cat?.nombre || 'General'}
-          </span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="status-badge" style="background: ${estadoBg}; color: ${estadoColor}; border: 1px solid ${estadoColor}40;">
+              ${estadoText}
+            </span>
+            <span class="badge" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40;">
+              ${cat?.nombre || 'General'}
+            </span>
+          </div>
         </div>
         <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-          Fecha: ${fecha} • Tipo: ${n.tipo.toUpperCase()}
+          Fecha: ${fecha} • Tipo: ${n.tipo.toUpperCase()}${n.plataforma ? ` (${n.plataforma.toUpperCase()})` : ''}
         </div>
         <div class="reason-box">
           <strong style="color: ${color};">¿Por qué lo guardé?</strong><br/>
           "${razon}"
         </div>
-        <div style="margin: 14px 0; color: #cbd5e1; white-space: pre-wrap;">
-          ${n.tipo === 'enlace' ? `<a href="${n.contenido}" style="color: #38bdf8;" target="_blank">${n.contenido}</a>` : n.contenido}
+
+        ${ytId ? `
+        <div class="video-container">
+          <iframe src="https://www.youtube.com/embed/${ytId}" title="${n.titulo}" allowfullscreen></iframe>
         </div>
+        <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+          Video: <a href="${n.contenido}" style="color: #38bdf8;" target="_blank">Abrir en YouTube ↗</a>
+        </div>
+        ` : ''}
+
+        <div style="margin: 14px 0; color: #cbd5e1; white-space: pre-wrap;">
+          ${n.tipo === 'enlace' && !ytId ? `<a href="${n.contenido}" style="color: #38bdf8;" target="_blank">${n.contenido}</a>` : (ytId ? '' : n.contenido)}
+        </div>
+
+        ${n.imagenUrl && !ytId ? `
+        <div style="margin: 14px 0;">
+          <img src="${n.imagenUrl}" style="max-width: 100%; border-radius: 8px; border: 1px solid #1e293b;" alt="Apoyo" />
+        </div>` : ''}
+
+        ${chk.length > 0 ? `
+        <div class="checklist-block">
+          <div style="font-size: 12px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+            Pasos de Acción (${chkDone}/${chk.length} completados)
+          </div>
+          ${chk.map((item) => `
+            <div style="font-size: 13px; padding: 4px 0; color: ${item.completado ? '#64748b' : '#e2e8f0'}; text-decoration: ${item.completado ? 'line-through' : 'none'};">
+              ${item.completado ? '☑' : '☐'} ${item.texto}
+            </div>
+          `).join('')}
+        </div>` : ''}
+
         ${n.etiquetas && n.etiquetas.length > 0 ? `
         <div>
           ${n.etiquetas.map((t) => `<span class="tag">#${t}</span>`).join('')}

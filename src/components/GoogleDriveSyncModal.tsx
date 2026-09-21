@@ -13,11 +13,13 @@ import {
   Clock,
   ShieldCheck,
   Tag,
-  CheckSquare
+  CheckSquare,
+  Video
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { BrainNodeData, BrainEdgeData, Category } from '../types';
 import { CanvasNodeItem } from '../data/initialData';
+import { extraerYouTubeId } from '../utils/textUtils';
 import { 
   googleSignIn, 
   googleSignOut, 
@@ -61,7 +63,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [driveFile, setDriveFile] = useState<DriveFileInfo | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  // Cálculo de estadísticas de etiquetas y checklists listos para persistir
+  // Cálculo de estadísticas de etiquetas, checklists, videos y estados cognitivos
   const totalTags = React.useMemo(() => {
     const set = new Set<string>();
     nodes.forEach((n) => {
@@ -77,6 +79,16 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const nodesWithChecklist = React.useMemo(() => {
     return nodes.filter((n) => (n.checklist?.length || 0) > 0).length;
   }, [nodes]);
+
+  const totalVideos = React.useMemo(() => {
+    return nodes.filter(
+      (n) => n.plataforma === 'youtube' || n.plataforma === 'instagram' || Boolean(extraerYouTubeId(n.contenido)) || Boolean(extraerYouTubeId(n.urlOriginal))
+    ).length;
+  }, [nodes]);
+
+  const masteredCount = React.useMemo(() => nodes.filter((n) => n.estado === 'dominado').length, [nodes]);
+  const inPracticeCount = React.useMemo(() => nodes.filter((n) => n.estado === 'en_practica').length, [nodes]);
+  const toLearnCount = React.useMemo(() => nodes.filter((n) => !n.estado || n.estado === 'por_aprender').length, [nodes]);
 
   // Al abrir y tener usuario autenticado, buscar respaldo en Drive
   useEffect(() => {
@@ -174,13 +186,24 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         throw new Error('Token no disponible. Por favor vuelve a iniciar sesión con Google.');
       }
 
-      // Aseguramos serialización completa de posiciones, etiquetas y checklists
+      // Aseguramos serialización completa de posiciones, etiquetas, checklists, videos y estados
       const payloadNodes = (canvasNodes && canvasNodes.length > 0)
         ? canvasNodes.map((n) => ({
             id: n.id,
             position: n.position,
             data: {
               ...n.data,
+              tipo: n.data.tipo || 'enlace',
+              titulo: n.data.titulo || '',
+              contenido: n.data.contenido || '',
+              categoriaId: n.data.categoriaId || '',
+              fechaCreacion: n.data.fechaCreacion || '',
+              razonModo: n.data.razonModo || 'manual',
+              razonManual: n.data.razonManual || '',
+              razonCalculada: n.data.razonCalculada || '',
+              plataforma: n.data.plataforma || undefined,
+              imagenUrl: n.data.imagenUrl || undefined,
+              urlOriginal: n.data.urlOriginal || undefined,
               etiquetas: Array.isArray(n.data.etiquetas) ? [...n.data.etiquetas] : [],
               checklist: Array.isArray(n.data.checklist)
                 ? n.data.checklist.map((item) => ({
@@ -197,6 +220,17 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
             position: { x: 200 + (idx % 4) * 360, y: 120 + Math.floor(idx / 4) * 340 },
             data: {
               ...n,
+              tipo: n.tipo || 'enlace',
+              titulo: n.titulo || '',
+              contenido: n.contenido || '',
+              categoriaId: n.categoriaId || '',
+              fechaCreacion: n.fechaCreacion || '',
+              razonModo: n.razonModo || 'manual',
+              razonManual: n.razonManual || '',
+              razonCalculada: n.razonCalculada || '',
+              plataforma: n.plataforma || undefined,
+              imagenUrl: n.imagenUrl || undefined,
+              urlOriginal: n.urlOriginal || undefined,
               etiquetas: Array.isArray(n.etiquetas) ? [...n.etiquetas] : [],
               checklist: Array.isArray(n.checklist)
                 ? n.checklist.map((item) => ({
@@ -210,7 +244,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
           }));
 
       const payload: DriveBackupPayload = {
-        version: '2.1.0',
+        version: '2.2.0',
         timestamp: new Date().toISOString(),
         app: 'Mi Segundo Cerebro',
         nodes: payloadNodes,
@@ -222,7 +256,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       setDriveFile(result);
       setStatusMessage({
         type: 'success',
-        text: `¡Copia de seguridad guardada con éxito en Google Drive! Sincronizados ${nodes.length} recursos con sus posiciones, ${totalTags} etiquetas y ${totalChecklistItems} pasos accionables.`,
+        text: `¡Copia de seguridad guardada con éxito en Google Drive! Sincronizados ${nodes.length} módulos con posiciones, ${totalVideos} videos/enlaces, estados cognitivos (${masteredCount} dominados), ${totalTags} etiquetas y ${totalChecklistItems} pasos de checklist.`,
       });
     } catch (err: any) {
       console.error('Error al guardar en Drive:', err);
@@ -418,11 +452,35 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                   <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
                     <span className="text-[10px] text-slate-500 block uppercase font-mono">Módulos</span>
                     <span className="font-bold text-slate-100 text-sm">{nodes.length}</span>
-                    <span className="text-[10px] text-slate-400 block">con posiciones</span>
+                    <span className="text-[10px] text-slate-400 block">con posición en lienzo</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 block uppercase font-mono flex items-center gap-1">
+                      <Video className="w-2.5 h-2.5 text-rose-400" /> Videos & Links
+                    </span>
+                    <span className="font-bold text-rose-400 text-sm">{totalVideos}</span>
+                    <span className="text-[10px] text-slate-400 block">recursos multimedia</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 block uppercase font-mono flex items-center gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" /> Dominio
+                    </span>
+                    <span className="font-bold text-emerald-400 text-sm">{masteredCount}</span>
+                    <span className="text-[10px] text-slate-400 block">{inPracticeCount} en práctica</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 block uppercase font-mono flex items-center gap-1">
+                      <CheckSquare className="w-2.5 h-2.5 text-amber-400" /> Checklist
+                    </span>
+                    <span className="font-bold text-amber-400 text-sm">{totalChecklistItems}</span>
+                    <span className="text-[10px] text-slate-400 block">pasos accionables</span>
                   </div>
 
                   <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
@@ -431,14 +489,6 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                     </span>
                     <span className="font-bold text-sky-400 text-sm">{totalTags}</span>
                     <span className="text-[10px] text-slate-400 block">tags activas</span>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block uppercase font-mono flex items-center gap-1">
-                      <CheckSquare className="w-2.5 h-2.5 text-emerald-400" /> Pasos / Checklist
-                    </span>
-                    <span className="font-bold text-emerald-400 text-sm">{totalChecklistItems}</span>
-                    <span className="text-[10px] text-slate-400 block">({nodesWithChecklist} módulos)</span>
                   </div>
 
                   <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800">

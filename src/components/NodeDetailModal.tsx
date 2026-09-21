@@ -40,7 +40,8 @@ import {
   CheckSquare,
   Square,
   Plus,
-  Maximize2
+  Maximize2,
+  Cloud
 } from 'lucide-react';
 
 interface NodeDetailModalProps {
@@ -58,6 +59,7 @@ interface NodeDetailModalProps {
   onFilterByTag: (tag: string) => void;
   onToggleChecklist?: (nodeId: string, itemId: string) => void;
   onPlayFloatingVideo?: (videoId: string, title: string, nodeId?: string, timestamp?: number | null) => void;
+  onOpenDriveModal?: () => void;
 }
 
 export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
@@ -75,6 +77,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
   onFilterByTag,
   onToggleChecklist,
   onPlayFloatingVideo,
+  onOpenDriveModal,
 }) => {
   const [copied, setCopied] = useState(false);
   const [videoLinkCopied, setVideoLinkCopied] = useState(false);
@@ -655,6 +658,17 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                 </>
               )}
             </button>
+
+            {onOpenDriveModal && (
+              <button
+                onClick={onOpenDriveModal}
+                className="px-2.5 py-1.5 rounded-xl bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 font-medium text-xs transition-colors border border-sky-800/80 flex items-center gap-1.5"
+                title="Abrir sincronización y respaldo de todo el mapa mental en Google Drive"
+              >
+                <Cloud className="w-3.5 h-3.5 text-sky-400" />
+                <span>Drive</span>
+              </button>
+            )}
           </div>
 
           {/* Navigation & Context Actions */}

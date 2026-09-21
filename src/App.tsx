@@ -1444,6 +1444,10 @@ export default function App() {
         onFilterByTag={(tag) => setSearchQuery(tag)}
         onToggleChecklist={handleToggleChecklist}
         onPlayFloatingVideo={handlePlayFloatingVideo}
+        onOpenDriveModal={() => {
+          setIsDetailModalOpen(false);
+          setIsDriveModalOpen(true);
+        }}
       />
 
       <PaletteModal
