@@ -14,6 +14,7 @@
 | **[DATA_MODELS.md](./DATA_MODELS.md)** | Interfaces TypeScript (`BrainNodeData`, `Category`, `BrainEdgeData`, `FilterState`), esquemas y JSON. | Al modificar propiedades de nodos, tipos de recursos o categorías. |
 | **[FEATURES_AND_FLOWS.md](./FEATURES_AND_FLOWS.md)** | Algoritmos de recorte de texto, auto-organización, colapso de ramas jerárquicas y exportación a Notion. | Para ajustar lógica de negocio, búsquedas o generación de tarjetas SVG. |
 | **[TECH_STACK_AND_CONVENTIONS.md](./TECH_STACK_AND_CONVENTIONS.md)** | Versiones de librerías, Tailwind v4, `@xyflow/react` v12, reglas de TypeScript y extensiones. | Antes de compilar, editar estilos o añadir librerías. |
+| **[DEPLOYMENT_PLAN.md](./DEPLOYMENT_PLAN.md)** | 🚀 Plan de despliegue final + veredicto de UX (gateway verificado, 5 pasos a producción, checklist A/B/C/D). | Para aplicar el despliegue definitivo o auditar el MVP a nivel UX. |
 
 ---
 
