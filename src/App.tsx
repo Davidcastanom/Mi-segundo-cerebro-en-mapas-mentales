@@ -48,6 +48,7 @@ import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { StudyReviewModal } from './components/StudyReviewModal';
 import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
 import { AspectsHubModal } from './components/AspectsHubModal';
+import { DownloadFeedbackModal, DownloadModalData } from './components/DownloadFeedbackModal';
 import { 
   Palette60_30_10, 
   obtenerPaletaGuardada, 
@@ -112,6 +113,14 @@ export default function App() {
   const [isAspectsHubOpen, setIsAspectsHubOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [quickPasteFeedback, setQuickPasteFeedback] = useState<string | null>(null);
+  const [downloadFeedback, setDownloadFeedback] = useState<DownloadModalData>({
+    isOpen: false,
+    fileName: '',
+    content: '',
+    mimeType: 'text/plain',
+    title: '',
+    format: 'json',
+  });
   const hubFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -198,30 +207,42 @@ export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialReactFlowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialReactFlowEdges);
 
-  // Sync to LocalStorage
+  // Sync to LocalStorage safely with try/catch to prevent QuotaExceededError or sandbox crashes
   useEffect(() => {
-    const serializedNodes = nodes.map((n) => ({
-      id: n.id,
-      position: n.position,
-      data: n.data as unknown as BrainNodeData,
-    }));
-    localStorage.setItem(`${STORAGE_KEY}_nodes`, JSON.stringify(serializedNodes));
+    try {
+      const serializedNodes = nodes.map((n) => ({
+        id: n.id,
+        position: n.position,
+        data: n.data as unknown as BrainNodeData,
+      }));
+      localStorage.setItem(`${STORAGE_KEY}_nodes`, JSON.stringify(serializedNodes));
+    } catch (e) {
+      console.warn('Error saving nodes to localStorage:', e);
+    }
   }, [nodes]);
 
   useEffect(() => {
-    const serializedEdges: BrainEdgeData[] = edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      sourceHandle: e.sourceHandle || undefined,
-      targetHandle: e.targetHandle || undefined,
-      etiqueta: typeof e.label === 'string' ? e.label : '',
-    }));
-    localStorage.setItem(`${STORAGE_KEY}_edges`, JSON.stringify(serializedEdges));
+    try {
+      const serializedEdges: BrainEdgeData[] = edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle || undefined,
+        targetHandle: e.targetHandle || undefined,
+        etiqueta: typeof e.label === 'string' ? e.label : '',
+      }));
+      localStorage.setItem(`${STORAGE_KEY}_edges`, JSON.stringify(serializedEdges));
+    } catch (e) {
+      console.warn('Error saving edges to localStorage:', e);
+    }
   }, [edges]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_categories`, JSON.stringify(categories));
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_categories`, JSON.stringify(categories));
+    } catch (e) {
+      console.warn('Error saving categories to localStorage:', e);
+    }
   }, [categories]);
 
   // Category Map lookup
@@ -440,9 +461,35 @@ export default function App() {
 
   const handleSaveNode = useCallback(
     (nodeData: Partial<BrainNodeData>) => {
+      // 1. Limpiar o ajustar filtros para garantizar que el nuevo nodo sea inmediatamente visible
+      if (selectedCategory && nodeData.categoriaId && selectedCategory !== nodeData.categoriaId) {
+        setSelectedCategory(null);
+      }
+      if (selectedType !== 'todos' && nodeData.tipo && selectedType !== nodeData.tipo) {
+        setSelectedType('todos');
+      }
+      if (selectedStatus !== 'todos' && nodeData.estado && selectedStatus !== nodeData.estado) {
+        setSelectedStatus('todos');
+      }
+      if (searchQuery.trim().length > 0) {
+        setSearchQuery('');
+      }
+
+      let targetX = 240;
+      let targetY = 180;
+      let targetNodeId = '';
+      const nodeTitle = nodeData.titulo?.trim() || 'Recurso de aprendizaje';
+
       if (editingNode) {
-        setNodes((nds) =>
-          nds.map((n) => {
+        targetNodeId = editingNode.id;
+        const currentPos = nodes.find((n) => n.id === editingNode.id)?.position;
+        if (currentPos) {
+          targetX = currentPos.x;
+          targetY = currentPos.y;
+        }
+
+        setNodes((nds) => {
+          const updated = nds.map((n) => {
             if (n.id === editingNode.id) {
               return {
                 ...n,
@@ -453,23 +500,57 @@ export default function App() {
               };
             }
             return n;
-          })
-        );
+          });
+
+          // Persistir inmediatamente de forma segura
+          try {
+            const serialized = updated.map((n) => ({
+              id: n.id,
+              position: n.position,
+              data: n.data as unknown as BrainNodeData,
+            }));
+            localStorage.setItem(`${STORAGE_KEY}_nodes`, JSON.stringify(serialized));
+          } catch (e) {
+            console.warn('Storage sync warning on update:', e);
+          }
+
+          return updated;
+        });
+
+        setQuickPasteFeedback(`¡Recurso "${nodeTitle}" actualizado en el lienzo!`);
       } else {
         const newId = `node-${Date.now()}`;
-        const defaultPosition = {
-          x: 200 + (nodes.length % 4) * 360,
-          y: 120 + Math.floor(nodes.length / 4) * 340,
-        };
+        targetNodeId = newId;
+
+        // Calcular posición en el centro del viewport actual del usuario
+        if (reactFlowInstance.current) {
+          try {
+            const vp = reactFlowInstance.current.getViewport?.() || { x: 0, y: 0, zoom: 1 };
+            const zoom = vp.zoom || 1;
+            const winW = typeof window !== 'undefined' ? window.innerWidth : 900;
+            const winH = typeof window !== 'undefined' ? window.innerHeight : 600;
+            // Desplazar ligeramente si ya hay un nodo en ese centro
+            const jitterX = (Math.random() - 0.5) * 40;
+            const jitterY = (Math.random() - 0.5) * 40;
+            targetX = (-vp.x + winW / 2) / zoom - 160 + jitterX;
+            targetY = (-vp.y + winH / 2) / zoom - 100 + jitterY;
+          } catch {
+            targetX = 200 + (nodes.length % 4) * 360;
+            targetY = 120 + Math.floor(nodes.length / 4) * 340;
+          }
+        } else {
+          targetX = 200 + (nodes.length % 4) * 360;
+          targetY = 120 + Math.floor(nodes.length / 4) * 340;
+        }
 
         const newNode: Node = {
           id: newId,
           type: 'brainNode',
-          position: defaultPosition,
+          position: { x: targetX, y: targetY },
           data: {
             id: newId,
             tipo: nodeData.tipo || 'enlace',
-            titulo: nodeData.titulo || 'Nuevo Recurso',
+            titulo: nodeTitle,
             contenido: nodeData.contenido || '',
             categoriaId: nodeData.categoriaId || categories[0]?.id || 'ingles',
             estado: nodeData.estado || 'por_aprender',
@@ -483,12 +564,52 @@ export default function App() {
           },
         };
 
-        setNodes((nds) => [...nds, newNode]);
+        setNodes((nds) => {
+          const updated = [...nds, newNode];
+          // Persistir inmediatamente de forma segura
+          try {
+            const serialized = updated.map((n) => ({
+              id: n.id,
+              position: n.position,
+              data: n.data as unknown as BrainNodeData,
+            }));
+            localStorage.setItem(`${STORAGE_KEY}_nodes`, JSON.stringify(serialized));
+          } catch (e) {
+            console.warn('Storage sync warning on create:', e);
+          }
+          return updated;
+        });
+
+        setQuickPasteFeedback(`¡Nuevo recurso "${nodeTitle}" guardado y visible en el lienzo!`);
       }
+
       setIsEditorOpen(false);
       setEditingNode(null);
+
+      // Enfocar suavemente en el nodo creado o actualizado
+      setTimeout(() => {
+        if (reactFlowInstance.current && targetX !== undefined && targetY !== undefined) {
+          reactFlowInstance.current.setCenter?.(targetX + 160, targetY + 100, {
+            duration: 600,
+            zoom: Math.max(0.85, reactFlowInstance.current.getZoom?.() || 1),
+          });
+        }
+      }, 70);
+
+      setTimeout(() => {
+        setQuickPasteFeedback(null);
+      }, 3500);
     },
-    [editingNode, categories, nodes.length, setNodes]
+    [
+      editingNode, 
+      categories, 
+      nodes, 
+      selectedCategory, 
+      selectedType, 
+      selectedStatus, 
+      searchQuery, 
+      setNodes
+    ]
   );
 
   // Handler: Connect nodes by dragging
@@ -940,17 +1061,44 @@ export default function App() {
   // Export Complete Backup JSON
   const handleExportJSON = useCallback(() => {
     const jsonStr = JSON.stringify(currentBackupData, null, 2);
-    descargarArchivo(jsonStr, `segundo_cerebro_backup_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+    const fileName = `segundo_cerebro_backup_${new Date().toISOString().split('T')[0]}.json`;
+    descargarArchivo(fileName, jsonStr, 'application/json;charset=utf-8');
+    setDownloadFeedback({
+      isOpen: true,
+      fileName,
+      content: jsonStr,
+      mimeType: 'application/json;charset=utf-8',
+      title: 'Copia de Seguridad Completa (JSON)',
+      format: 'json',
+    });
   }, [currentBackupData]);
 
   // Export Complete Dossier Document
   const handleExportDocument = useCallback((format: 'md' | 'html') => {
     if (format === 'md') {
       const content = generarDossierCompletoMarkdown(rawNodesList, categories);
-      descargarArchivo(content, `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.md`, 'text/markdown');
+      const fileName = `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.md`;
+      descargarArchivo(fileName, content, 'text/markdown;charset=utf-8');
+      setDownloadFeedback({
+        isOpen: true,
+        fileName,
+        content,
+        mimeType: 'text/markdown;charset=utf-8',
+        title: 'Dossier Completo en Markdown (.md)',
+        format: 'md',
+      });
     } else {
       const content = generarDossierCompletoHTML(rawNodesList, categories);
-      descargarArchivo(content, `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.html`, 'text/html');
+      const fileName = `dossier_segundo_cerebro_${new Date().toISOString().split('T')[0]}.html`;
+      descargarArchivo(fileName, content, 'text/html;charset=utf-8');
+      setDownloadFeedback({
+        isOpen: true,
+        fileName,
+        content,
+        mimeType: 'text/html;charset=utf-8',
+        title: 'Dossier Web Imprimible (.html)',
+        format: 'html',
+      });
     }
   }, [rawNodesList, categories]);
 
@@ -1297,6 +1445,12 @@ export default function App() {
         onTriggerImport={() => hubFileInputRef.current?.click()}
         onResetDemo={handleResetDemo}
         totalNodes={nodes.length}
+      />
+
+      {/* Download Feedback & Clipboard Copy Modal */}
+      <DownloadFeedbackModal
+        data={downloadFeedback}
+        onClose={() => setDownloadFeedback((prev) => ({ ...prev, isOpen: false }))}
       />
 
       <input

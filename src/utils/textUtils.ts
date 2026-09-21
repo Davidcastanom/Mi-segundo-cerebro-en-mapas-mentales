@@ -660,18 +660,73 @@ export function generarDocumentoHTML(
 }
 
 /**
- * Disparar la descarga directa de un archivo en el navegador
+ * Disparar la descarga directa de un archivo en el navegador de forma robusta.
+ * Tolera argumentos invertidos (nombre/contenido), sanitiza nombres de archivo,
+ * posterga revokeObjectURL para permitir descargas en móviles/iframes y provee Data URI fallback.
  */
-export function descargarArchivo(nombre: string, contenido: string, tipoMime: string = 'text/plain') {
-  const blob = new Blob([contenido], { type: tipoMime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombre;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export function descargarArchivo(
+  arg1: string,
+  arg2: string,
+  tipoMime: string = 'text/plain'
+): boolean {
+  if (typeof window === 'undefined') return false;
+
+  let nombre = arg1 || 'archivo.txt';
+  let contenido = arg2 || '';
+
+  // Detección automática inteligente: ¿los argumentos vinieron invertidos?
+  // Si arg1 contiene saltos de línea, llaves JSON o es muy largo, y arg2 termina con extensión conocida:
+  const extensions = ['.json', '.md', '.html', '.txt', '.svg', '.csv'];
+  const arg1HasLineBreaksOrLong = arg1.includes('\n') || arg1.length > 100 || arg1.trim().startsWith('{') || arg1.trim().startsWith('#') || arg1.trim().startsWith('<!DOCTYPE');
+  const arg2LooksLikeFilename = extensions.some((ext) => arg2.toLowerCase().endsWith(ext)) || (!arg2.includes('\n') && arg2.length < 90);
+
+  if (arg1HasLineBreaksOrLong && arg2LooksLikeFilename) {
+    nombre = arg2;
+    contenido = arg1;
+  }
+
+  // Sanitizar nombre de archivo para evitar bloqueos del sistema operativo / navegador
+  const sanitizedName = nombre
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[<>:"/\\|?*]/g, '_')
+    .trim() || 'descarga.txt';
+
+  try {
+    const blob = new Blob([contenido], { type: tipoMime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = sanitizedName;
+    a.setAttribute('target', '_blank'); // Permite fallback en ciertos WebView móviles
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    
+    // Remover del DOM de inmediato, pero NUNCA revocar el URL inmediatamente
+    // pues los navegadores en móviles e iframes abortan la descarga si el blob se destruye en la misma microtarea.
+    document.body.removeChild(a);
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }, 60000);
+    return true;
+  } catch (blobErr) {
+    console.warn('Fallo creación de Blob URL, intentando Data URI fallback:', blobErr);
+    try {
+      const dataUri = `data:${tipoMime};charset=utf-8,${encodeURIComponent(contenido)}`;
+      const a = document.createElement('a');
+      a.href = dataUri;
+      a.download = sanitizedName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return true;
+    } catch (dataErr) {
+      console.error('Error total en descarga de archivo:', dataErr);
+      return false;
+    }
+  }
 }
 
 /**
