@@ -2,6 +2,8 @@
 
 > **Status: LIVE & VERIFIED** · Gateway checked first (no assumptions) · App UI is **Spanish** · Docs in **English** for AI/agent readability.
 
+> **Dato maestro:** `?node=<id>` / `#node-<id>` — el deep-link es la **causa raíz del cuadro *target*** (leído en `App.tsx:1008-1011` vía `window.location.search` + `hash`); runtime canónico = **Bun**.
+
 ---
 
 ## 1. Gateway Status (verified, refreshed this session)
